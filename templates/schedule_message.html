@@ -1,0 +1,126 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %} 
+
+
+{% if get_type %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-center">
+      <h1>Create New Content</h1>
+      <div class="row mx-auto">
+        <div class="w-100 col-sm-6 mx-auto">
+          <form action="/schedule_message?action=get_text" method="POST">
+            <div class="form-group">
+              <div class="form-group">
+              <label for="type">Message Type</label>
+              <select id="type" name="type" class="form-control">
+                  <option>Text/Link</option>
+                  <option>Image/Video</option>
+              </select>
+            <div>
+              <button class="btn btn-outline-dark mt-3" type="submit">
+                Next
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+{% endif %}
+
+{% if get_text %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-left">
+      <div class="mx-auto text-center">
+        <h1 class="ml-auto mt-4">Create New Content</h1>
+      </div>
+      <div class="row mx-auto">
+        <div class="w-100 col-sm-6 mx-auto">
+          <form action="/schedule_message?action=save_text_content" method="POST">
+            <div class="form-group">
+                <label for="message">Message</label>
+                <textarea class="form-control" id="message" name="message" rows="10"></textarea>
+                <div class="custom-control custom-radio">
+                    <input type="radio" id="customRadio1" name="scheduleCat" value="everyday" class="custom-control-input">
+                    <label class="custom-control-label" for="customRadio1">Everyday</label>
+                  </div>
+                  <label class="my-3" for="everyDayHours">HH</label>
+                  <select name="everyDayHours" id="everyDayHours">
+                    {% for hr in dates['hours'] %}
+                    <option value="{{ hr }}">{{ hr }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="everyDayMinutes">MM</label>
+                  <select name="everyDayMinutes" id="everyDayMinutes">
+                    {% for m in dates['minutes'] %}
+                    <option value="{{ m }}">{{ m }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="custom-control custom-radio">
+                    <input type="radio" id="customRadio2" name="scheduleCat" value="weekdays" class="custom-control-input">
+                    <label class="custom-control-label" for="customRadio2">On Weekday</label>
+                  </div>
+                  <label class="my-3" for="weekdaysDay">Day </label>
+                  <select name="weekdaysDay" id="weekdaysDay">
+                    {% for day in dates['weekdays'] %}
+                    <option value="{{ day }}">{{ day }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="weekdaysHours">Time: HH</label>
+                  <select name="weekdaysHours" id="weekdaysHours">
+                    {% for hr in dates['hours'] %}
+                    <option value="{{ hr }}">{{ hr }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="weekdaysMinutes">MM</label>
+                  <select name="weekdaysMinutes" id="weekdaysMinutes">
+                    {% for m in dates['minutes'] %}
+                    <option value="{{ m }}">{{ m }}</option>
+                    {% endfor %}
+                  </select>
+                  <div class="custom-control custom-radio">
+                    <input type="radio" id="customRadio3" name="scheduleCat" value="once" class="custom-control-input">
+                    <label class="custom-control-label" for="customRadio3">Once</label>
+                  </div>
+                  <label class="my-3" for="onceMonth">Month</label>
+                  <select name="onceMonth" id="onceMonth">
+                    {% for m in dates['months'] %}
+                    <option value="{{ m }}">{{ m }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="onceDom">Day of Month</label>
+                  <select name="onceDom" id="onceDom">
+                    {% for day in dates['days'] %}
+                    <option value="{{ day }}">{{ day }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="onceHours">Time: HH</label>
+                  <select name="onceHours" id="onceHours">
+                    {% for hr in dates['hours'] %}
+                    <option value="{{ hr }}">{{ hr }}</option>
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="onceMinutes">MM</label>
+                  <select name="onceMinutes" id="onceMinutes">
+                    {% for m in dates['minutes'] %}
+                    <option value="{{ m }}">{{ m }}</option>
+                    {% endfor %}
+                  </select>
+              <button class="btn btn-outline-dark mt-3" type="submit">
+                Schedule Message
+              </button>
+            </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endif %}
+
+{% endblock %}

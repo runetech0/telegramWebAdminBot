@@ -1,0 +1,36 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %}
+
+<div class="container text-center">
+  <div class="row">
+    <div class="w-100 col-sm-6 mx-auto">
+      <h1>Remove User</h1>
+      <form method="POST" class="mt-3" action="/remove_member" method="POST">
+        <label for="type">Remove User By </label>
+        <select id="type" name="type" class="form-control">
+          <option>Id</option>
+          <option>Username</option>
+          <option>Phone Number</option>
+        </select>
+        <div class="form-group mt-3">
+          <label for="channelName">Id/Username/Phone Number</label>
+          <input
+            name="channelName"
+            type="text"
+            class="form-control"
+            id="channelName"
+          />
+        </div>
+        <button
+          class="btn btn-outline-dark mt-3"
+          type="submit"
+          class="btn btn-primary"
+        >
+          Remove User
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

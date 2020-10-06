@@ -1,0 +1,49 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %}
+
+<div class="mx-auto my-3 text-center">
+  <h1 class="my-3">Your Channels</h1>
+  <div class="container">
+    <div class="row">
+      {% for ch in channels %}
+      <div class="col-md-4 my-3">
+        <div class="card" style="width: 18rem">
+          <div class="card-body">
+            <h5 class="card-title">{{ ch.title }}</h5>
+            <p class="card-text"></p>
+            <a href="/remove_member" class="btn btn-dark btn-sm my-1"
+              >Remove Member</a
+            >
+            <form method="POST" action="/schedule_message?action=get_type">
+              <input type="hidden" name="channelId" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Schedule Messages
+              </button>
+            </form>
+            <form method="GET" action="/schedule_quiz">
+              <input type="hidden" name="channelId" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Schedule Quiz
+              </button>
+            </form>
+            <form method="POST" action="/schedule_message">
+              <input type="hidden" name="channelId" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Get Sharable Link
+              </button>
+            </form>
+            <form method="POST" action="/schedule_message">
+              <input type="hidden" name="channelId" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Get Quiz Reports
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <!-- Hy -->
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

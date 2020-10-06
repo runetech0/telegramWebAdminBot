@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+
+    <!-- Bootstrap CSS -->
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+      integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z"
+      crossorigin="anonymous"
+    />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <title>{% block title %}{% endblock %}</title>
+    <style>
+      .main {
+        background-image: url("static/images/bg.jpg");
+      }
+    </style>
+  </head>
+
+  <body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <a class="navbar-brand" href="#">Admin Control Panel</a>
+      <button
+        class="navbar-toggler"
+        type="button"
+        data-toggle="collapse"
+        data-target="#navbarText"
+        aria-controls="navbarText"
+        aria-expanded="false"
+        aria-label="Toggle navigation"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarText">
+        <ul class="navbar-nav mx-auto">
+          <li class="nav-item">
+            <a class="mx-2 nav-link btn btn-outline-secondary" href="/dashboard"
+              >Home <span class="sr-only"></span
+            ></a>
+          </li>
+          <li class="mx-2 nav-item">
+            <a class="nav-link btn btn-outline-secondary" href="/all_channels"
+              >My Groups / Channels</a
+            >
+          </li>
+          <li class="mx-2 nav-item">
+            <a class="nav-link btn btn-outline-secondary" href="/manage_quiz"
+              >Manage Quiz Sequences</a
+            >
+          </li>
+          <li class="mx-2 nav-item">
+            <a class="nav-link btn btn-outline-secondary" href="/manage_content"
+              >Manage Learning Content</a
+            >
+          </li>
+          <li class="mx-2 nav-item">
+            <a class="nav-link btn btn-outline-secondary" href="/create_channel"
+              >Create New Channel</a
+            >
+          </li>
+        </ul>
+        <a class="nav-link btn btn-outline-dark" href="/logout">Logout</a>
+      </div>
+    </nav>
+    <div class="main">{% block content %} {% endblock %}</div>
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+
+    <script>
+      $(document).ready(function () {
+        var option = 0;
+        $("#add").click(function () {
+          var lastField = $("#buildyourform div:last");
+          var intId =
+            (lastField && lastField.length && lastField.data("idx") + 1) || 1;
+          var fieldWrapper = $(
+            '<div class="fieldwrapper" id="field' + intId + '"/>'
+          );
+          fieldWrapper.data("idx", intId);
+          var fName = $(
+            `<input placeholder="Option${intId}" name="option${intId}" type="text" class="fieldname form-control d-inline-block" />`
+          );
+          var fType = $(
+            '<select class="fieldtype"><option value="checkbox">Checked</option><option value="textbox">Text</option><option value="textarea">Paragraph</option></select>'
+          );
+          var removeButton = $(
+            `<input type="button" class="remove btn btn-small btn-outline-dark my-2 d-inline-block" value="x" />`
+          );
+          removeButton.click(function () {
+            $(this).parent().remove();
+          });
+          fieldWrapper.append(fName);
+          // fieldWrapper.append(fType);
+          fieldWrapper.append(removeButton);
+          $("#buildyourform").append(fieldWrapper);
+        });
+        $("#preview").click(function () {
+          $("#yourform").remove();
+          var fieldSet = $(
+            '<fieldset id="yourform"><legend>Your Form</legend></fieldset>'
+          );
+          $("#buildyourform div").each(function () {
+            var id = "input" + $(this).attr("id").replace("field", "");
+            var label = $(
+              '<label for="' +
+                id +
+                '">' +
+                $(this).find("input.fieldname").first().val() +
+                "</label>"
+            );
+            var input;
+            switch ($(this).find("select.fieldtype").first().val()) {
+              case "checkbox":
+                input = $(
+                  '<input type="checkbox" id="' + id + '" name="' + id + '" />'
+                );
+                break;
+              case "textbox":
+                input = $(
+                  '<input type="text" id="' + id + '" name="' + id + '" />'
+                );
+                break;
+              case "textarea":
+                input = $(
+                  '<textarea id="' + id + '" name="' + id + '" ></textarea>'
+                );
+                break;
+            }
+            fieldSet.append(label);
+            fieldSet.append(input);
+          });
+          $("body").append(fieldSet);
+        });
+      });
+    </script>
+
+    <script
+      src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+      integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"
+      integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+      integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+      crossorigin="anonymous"
+    ></script>
+  </body>
+</html>
