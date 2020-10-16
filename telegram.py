@@ -1,33 +1,39 @@
-from telethon import TelegramClient, utils, events
-from telethon.tl.functions.channels import CreateChannelRequest, CheckUsernameRequest, UpdateUsernameRequest
-from telethon.tl.types import InputChannel, InputPeerChannel
+
+from telethon.sync import TelegramClient, events, functions
+from telethon import functions
+from telethon.tl.types import UpdateMessagePoll
+from datetime import datetime, timezone, timedelta
+import logging
 
 
-
-API_ID = 1219125
-API_HASH = 'd15e36f952698015e9f8384b2d0c547d'
-client =  TelegramClient('anon', API_ID, API_HASH)
-
-class Telegram:
-    def __init__(self):
-        API_ID = 1219125
-        API_HASH = 'd15e36f952698015e9f8384b2d0c547d'
-        self.PHONE_NUMBER = '+92308944289'
-        self.client = TelegramClient('anon', API_ID, API_HASH)
-        self.client.parse_mode = 'html'  # <- Render things nicely
+# logging.basicConfig(format='%(filename)s: %(message)s',
+#                     level=logging.DEBUG)
 
 
-    async def start(self):
-        await self.client.connect()
-        if not await self.client.is_user_authorized():
-            await self.client.send_code_request(self.PHONE_NUMBER)
-            await self.client.sign_in(code=input("Enter code: "))
-
-    @client.on(events.NewMessage)
-    async def my_event_handler(event):
-        if 'hello' in event.raw_text:
-            await event.reply('hi!')
+api_id = 1219125
+api_hash = 'd15e36f952698015e9f8384b2d0c547d'
+phone = '+923089442289'
+bot_token = '1205226796:AAEVy8uL5Xko0XKNYTasVIgwN-cF8dG2yQ8'
+client = TelegramClient(phone, api_id, api_hash)
 
 
-    async def stop():
-        self.client.disconnect()
+@client.on(events.Raw(types=UpdateMessagePoll))
+async def poll(event):
+    print(event.stringify())
+
+
+@client.on(events.NewMessage(chats=('Group 3')))
+async def message_handler(event):
+    from telethon.tl.types import InputMediaPoll, Poll, PollAnswer
+    sent = await client.send_message("Group 3", file=InputMediaPoll(
+        poll=Poll(
+            id=53453159,
+            question="Is it 2020?",
+            answers=[PollAnswer('Yes', b'1'), PollAnswer('No', b'2')]
+        )
+    ))
+    print(sent.stringify())
+
+client.start(phone=phone)
+print(f'Logged in ..\n Bot is up ...')
+client.run_until_disconnected()

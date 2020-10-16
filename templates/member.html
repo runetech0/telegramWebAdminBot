@@ -1,0 +1,72 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %} {% if remove %}
+
+<div class="container text-center">
+  <div class="row">
+    <div class="w-100 col-sm-6 mx-auto">
+      <h1>Remove Member</h1>
+      <form method="POST" class="mt-3" action="/remove_member" method="POST">
+        <input type="hidden" name="channel_id" value="{{ channel_id }}" />
+        <label for="type">Remove Member By </label>
+        <select id="type" name="type" class="form-control">
+          <!-- <option value="id">Id</option> -->
+          <option value="username">Username</option>
+          <option value="phone">Phone Number</option>
+        </select>
+        <div class="form-group mt-3">
+          <label for="input_entity">Username/Phone Number</label>
+          <input
+            name="input_entity"
+            type="text"
+            class="form-control"
+            id="channelName"
+          />
+        </div>
+        <button
+          class="btn btn-outline-dark mt-3"
+          type="submit"
+          class="btn btn-primary"
+        >
+          Remove Member
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endif %} {% if add_new %}
+
+<div class="container text-center">
+  <div class="row">
+    <div class="w-100 col-sm-6 mx-auto">
+      <h1>Add Member</h1>
+      <form method="POST" class="mt-3" action="/add_member" method="POST">
+        <input type="hidden" name="channel_id" value="{{ channel_id }}" />
+        <label for="type">Add Member By </label>
+        <select id="type" name="type" class="form-control">
+          <!-- <option value="id">Id</option> -->
+          <option value="username">Username</option>
+          <option value="phone">Phone Number</option>
+        </select>
+        <div class="form-group mt-3">
+          <label for="input_entity">Username/Phone Number</label>
+          <input
+            name="input_entity"
+            type="text"
+            class="form-control"
+            id="channelName"
+          />
+        </div>
+        <button
+          class="btn btn-outline-dark mt-3"
+          type="submit"
+          class="btn btn-primary"
+        >
+          Add Member
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endif %} {% endblock %}

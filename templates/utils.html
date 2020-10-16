@@ -1,0 +1,13 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %} {% if display_link %}
+
+<div class="container">
+  <div class="row">
+    <h2 class="mx-auto">Group Invite Link</h2>
+  </div>
+  <div class="row">
+    <div class="mx-auto alert alert-dark" role="alert">{{ link }}</div>
+  </div>
+</div>
+
+{% endif %} {% endblock %}

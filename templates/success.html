@@ -1,0 +1,16 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+    content %} 
+    
+    <div class="jumbotron">
+        <h1 class="display-4">{{ title }}</h1>
+        {% if description %}
+        <p class="lead">{{ description }}</p>
+        {% endif %}
+        <p class="lead">
+          <a class="btn btn-outline-dark btn-lg" href="{{ link }}" role="button">{{ link_text }}</a>
+        </p>
+      </div>
+
+
+{% endblock %}
+    
