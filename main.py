@@ -37,7 +37,7 @@ phone = None
 # Quart app
 app = Quart(__name__)
 app.secret_key = 'CHANGE THIS TO SOMETHING SECRET'
-logged_in = False
+logged_in = True
 
 
 # Samples for testing
@@ -231,9 +231,9 @@ async def create_quiz():
     if request.method == 'GET':
         channel_id = int(request.args.get('channel_id'))
         list_of_quiz = await my_utils.get_list_of_polls(channel_id)
-        if len(list_of_quiz) != 0:
+        if list_of_quiz:
             return await render_template('schedule_quiz.html', list_quiz=True, list_of_quiz=list_of_quiz, channel_id=channel_id)
-        return await render_template('schedule_quiz.html', list_quiz=False, channel_id=channel_id)
+        return await render_template('schedule_quiz.html', list_quiz=True, channel_id=channel_id)
     if request.method == 'POST':
         hours = list(range(0, 24))
         minutes = list(range(0, 60))
@@ -272,8 +272,8 @@ async def create_quiz():
                 minutes = int(form.get('onceMinutes'))
                 status = await my_utils.schedule_poll(int(channel_id), question=question, answers=answers, poll_typ='text', month=month, day=dom, hour=hours, minute=minutes)
                 if status['code'] != 0:
-                    return await render_template('success.html', link='/all_channels', link_text='Back to channels', title='Schedule failed!', description=f'{status["message"]}')
-                return await render_template('success.html', link='/all_channels', link_text='Back to channels', title='Scheduled successfully!', description=f'{status["message"]}')
+                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{status["message"]}')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{status["message"]}')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -295,8 +295,8 @@ async def create_quiz():
                         fromDay = 1
                         continue
                 if status['code'] != 0:
-                    return await render_template('success.html', link='/all_channels', link_text='Back to channels', title='Schedule failed!', description=f'{status["message"]}')
-                return await render_template('success.html', link='/all_channels', link_text='Back to channels', title='Scheduled successfully!', description=f'{status["message"]}')
+                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{status["message"]}')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{status["message"]}')
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
                 hours = form.get('weekdaysHours')
@@ -311,11 +311,9 @@ async def create_quiz():
 
 @app.route('/test', methods=['GET', 'POST'])
 async def test():
-    global logged_in
-    if not logged_in:
-        return redirect(f'/')
     if request.method == 'GET':
-        return await render_template('test.html', get_data=True, lis=[0, 2, 3, 56])
+        await my_utils.test()
+        return await render_template('test.html')
     if request.method == 'POST':
         return await render_template('test.html')
 
@@ -369,7 +367,7 @@ async def manage_content():
                 hours = form.get('onceHours')
                 minutes = form.get('onceMinutes')
                 await my_utils.schedule_message_once(channel_id, 'text', message_text=message, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
-                return await render_template('success.html', link='/all_channels', link_text='Back To Channels', title='Message Scheduled!')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -391,7 +389,7 @@ async def manage_content():
                         fromDay = 1
                         continue
 
-                return await render_template('success.html', link='/all_channels', link_text='Back To Channels', title='Message Scheduled!')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
 
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
@@ -419,7 +417,7 @@ async def manage_content():
                 file_location = f'./uploads/{filename}'
                 uploaded_file.save(file_location)
                 await my_utils.schedule_message_once(channel_id, 'file', file_location=file_location, file_caption=file_caption, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
-                return await render_template('success.html', link='/all_channels', link_text='Back To Channels', title='Message Scheduled!')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -443,7 +441,7 @@ async def manage_content():
                         fromMonth += 1
                         fromDay = 1
                         continue
-                return await render_template('success.html', link='/all_channels', link_text='Back To Channels', title='Message Scheduled!')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
                 hours = form.get('weekdaysHours')
@@ -465,10 +463,24 @@ async def delete_message():
         form = await request.form
         message_id = int(form.get('message_id'))
         channel_id = int(form.get('channel_id'))
-        print(action)
         if action == 'delete':
             await my_utils.delete_message(channel_id, message_id)
-            return 'message deleted'
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message deleted successfully!')
+
+
+@app.route('/delete_poll', methods=['POST'])
+async def delete_poll():
+    global logged_in
+    if not logged_in:
+        return redirect(f'/')
+    if request.method == 'POST':
+        action = request.args.get('action')
+        form = await request.form
+        message_id = int(form.get('message_id'))
+        channel_id = int(form.get('channel_id'))
+        if action == 'delete':
+            await my_utils.delete_poll(channel_id, message_id)
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message deleted successfully!')
 
 
 @app.route('/quiz_reports', methods=['GET'])

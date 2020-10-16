@@ -98,7 +98,7 @@ class Utils:
             list_of_messages.append(m)
         if len(list_of_messages) == 0:
             return None
-        return result.messages
+        return list_of_messages
 
     async def get_members_list(self, channel_id):
         channel = self.client.get_entity(int(channel_id))
@@ -176,10 +176,20 @@ class Utils:
         return list_of_polls
 
     async def delete_message(self, channel_id, message_id):
+        group = await self.client.get_entity(int(channel_id))
         list_of_messages = await self.get_scheduled_messages(channel_id)
-        for message in list_of_messages:
-            res = await message.delete()
-            print(res)
+        if list_of_messages:
+            for message in list_of_messages:
+                if message.id == int(message_id):
+                    await self.client(functions.messages.DeleteScheduledMessagesRequest(peer=group, id=[message.id]))
+
+    async def delete_poll(self, channel_id, message_id):
+        group = await self.client.get_entity(int(channel_id))
+        list_of_messages = await self.get_list_of_polls(channel_id)
+        if list_of_messages:
+            for message in list_of_messages:
+                if message.id == int(message_id):
+                    await self.client(functions.messages.DeleteScheduledMessagesRequest(peer=group, id=[message.id]))
 
     async def remove_member_by_id(self, channel, id):
         await self.client.get_entity(id)
@@ -209,3 +219,7 @@ class Utils:
         result = await self.client(functions.messages.ExportChatInviteRequest(
             peer=channel))
         return result.link
+
+    async def test(self):
+        group = await self.client.get_entity(410906750)
+        list_of_messages = await self.get_scheduled_messages(410906750)
