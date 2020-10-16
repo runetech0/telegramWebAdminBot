@@ -37,7 +37,7 @@ phone = None
 # Quart app
 app = Quart(__name__)
 app.secret_key = 'CHANGE THIS TO SOMETHING SECRET'
-logged_in = True
+logged_in = False
 
 
 # Samples for testing
@@ -51,8 +51,6 @@ list_of_channels = None
 @client.on(events.NewMessage)
 async def my_event_handler(event):
     return
-    if 'hello' in event.raw_text:
-        await event.reply('hi!')
 
 
 @client.on(events.Raw(types=[UpdateMessagePoll]))
