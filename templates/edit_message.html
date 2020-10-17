@@ -1,0 +1,78 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+    content %}
+    
+{% if editTextMessage %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-left">
+      <div class="mx-auto text-center">
+        <h1 class="ml-auto mt-4">Edit Message</h1>
+      </div>
+      <div class="row mx-auto">
+        <div class="w-100 col-sm-6 mx-auto">
+          <form action="/edit_message?action=save_text_content" method="POST">
+            <input type="hidden" name="channel_id" value="{{ channelId }}">
+            <input type="hidden" name='message_id' value="{{ targetMessage.id }}" >
+            <div class="form-group">
+                <label for="message">Message</label>
+                <textarea class="form-control" id="message" name="message_text" rows="10">{{ targetMessage.message }}</textarea>
+                <div class="custom-control custom-radio mt-4">
+                    <input checked='checked' type="radio" id="customRadio1" name="scheduleCat" value="from" class="custom-control-input">
+                    <label class="custom-control-label" for="customRadio1">Date</label>
+                  </div>
+                  <label class="my-3" for="newMonth">Month</label>
+                  <select name="newMonth" id="newMonth">
+                    {% for m in dates['months'] %}
+                        {% if targetMessage.date.month == m %}
+                        <option selected value="{{ m }}">{{ m }}</option>    
+                        {% else %}
+                        <option value="{{ m }}">{{ m }}</option>
+                        {% endif %}
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="newDay">Day of Month</label>
+                  <select name="newDay" id="newDay">
+                    {% for day in dates['days'] %}
+                    {% if targetMessage.date.day == day %}
+                        <option selected value="{{ day }}">{{ day }}</option>
+                    {% else %}
+                        <option value="{{ day }}">{{ day }}</option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="newHour">HH</label>
+                  <select name="newHour" id="newHour">
+                    {% for hr in dates['hours'] %}
+                    {% if targetMessage.date.hour  == hr %}
+                        <option selected value="{{ hr }}">{{ hr }}</option>
+                    {% else %}
+                        <option value="{{ hr }}">{{ hr }}</option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+                  <label class="my-3" for="newMinutes">MM</label>
+                  <select name="newMinutes" id="newMinutes">
+                    {% for m in dates['minutes'] %}
+                    {% if targetMessage.date.minute == m %}
+                        <option selected value="{{ m }}">{{ m }}</option>
+                    {% else %}
+                        <option value="{{ m }}">{{ m }}</option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+              <button class="btn btn-outline-dark mt-3" type="submit">
+                Update Message
+              </button>
+            </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+{% endif %}
+    
+{% endblock %}
+    

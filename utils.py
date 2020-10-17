@@ -183,6 +183,19 @@ class Utils:
                 if message.id == int(message_id):
                     await self.client(functions.messages.DeleteScheduledMessagesRequest(peer=group, id=[message.id]))
 
+    async def edit_message(self, channel_id, message_id, newText=None, newMedia=None, newDate=None):
+        group = await self.client.get_entity(int(channel_id))
+        list_of_messages = await self.get_scheduled_messages(channel_id)
+        if list_of_messages:
+            for message in list_of_messages:
+                if message.id == int(message_id):
+                    if not newDate:
+                        newDate = message.date
+                    if not newText:
+                        newText = message.content
+                    await self.client(functions.messages.EditMessageRequest(peer=group, id=message.id,
+                                                                            message=newText, no_webpage=False, entities=message.entities, media=newMedia, schedule_date=newDate))
+
     async def delete_poll(self, channel_id, message_id):
         group = await self.client.get_entity(int(channel_id))
         list_of_messages = await self.get_list_of_polls(channel_id)

@@ -22,13 +22,13 @@ content %}
           <div class="card-body">
             <h5 class="card-title">Message</h5>
             <p class="card-text">{{ m.message }}</p>
-            <h6 class="card-subtitle mb-2 text-muted">{{ m.date.date() }} {{ m.date.hour }}:{{ m.date.minute }} </h6>
+            <h6 class="card-subtitle mb-2 text-muted">{{ m.date.date() }} {{ m.date.hour + 5 }}:{{ m.date.minute }} </h6>
             <form class="d-inline" action="/delete_message?action=delete" method="POST">
               <input type="hidden" name="message_id" value="{{ m.id }}">
               <input type="hidden" name="channel_id" value="{{ channel_id }}">
               <button class="btn btn-outline-dark btn-sm" type="submit">Delete Message</button>
             </form>
-            <form class="d-inline" action="/delete_message?action=edit" method="POST">
+            <form class="d-inline" action="/edit_message?action=edit" method="GET">
               <input type="hidden" name="message_id" value="{{ m.id }}">
               <input type="hidden" name="channel_id" value="{{ channel_id }}">
               <button class="btn btn-outline-dark btn-sm" type="submit">Edit Message</button>

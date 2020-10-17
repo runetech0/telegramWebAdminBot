@@ -4,6 +4,7 @@ from telethon import functions
 from telethon.tl.types import UpdateMessagePoll
 from datetime import datetime, timezone, timedelta
 import logging
+import time
 
 
 # logging.basicConfig(format='%(filename)s: %(message)s',
@@ -24,16 +25,8 @@ async def poll(event):
 
 @client.on(events.NewMessage(chats=('Group 3')))
 async def message_handler(event):
-    from telethon.tl.types import InputMediaPoll, Poll, PollAnswer
-    sent = await client.send_message("Group 3", file=InputMediaPoll(
-        poll=Poll(
-            id=53453159,
-            question="Is it 2020?",
-            answers=[PollAnswer('Yes', b'1'), PollAnswer('No', b'2')]
-        )
-    ))
-    print(sent.stringify())
+    sent = await event.reply('Hello')
 
 client.start(phone=phone)
-print(f'Logged in ..\n Bot is up ...')
+print(f' Logged in ..\n Bot is up ...')
 client.run_until_disconnected()

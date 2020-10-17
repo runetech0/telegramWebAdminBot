@@ -14,6 +14,7 @@ from pymongo import MongoClient
 from dbUtils import DBUtils
 from gsheets import GSheets
 from configparser import ConfigParser
+from datetime import datetime, timedelta
 
 config = ConfigParser()
 config.read('conf.ini')
@@ -481,6 +482,51 @@ async def delete_poll():
         if action == 'delete':
             await my_utils.delete_poll(channel_id, message_id)
             return await render_template('status.html', link='/all_channels', link_text='Back', title='Message deleted successfully!')
+
+
+@app.route('/edit_message', methods=['GET', 'POST'])
+async def edit_message():
+    global logged_in
+    if not logged_in:
+        return redirect(f'/')
+    hours = list(range(0, 24))
+    minutes = list(range(0, 60))
+    days = list(range(1, 31))
+    months = list(range(1, 13))
+    dates = {
+        'hours': hours,
+        'minutes': minutes,
+        'days': days,
+        'months': months,
+        'weekdays': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    }
+    if request.method == 'GET':
+        channelId = int(request.args.get('channel_id'))
+        messageId = int(request.args.get('message_id'))
+        messages = await my_utils.get_scheduled_messages(channelId)
+        for message in messages:
+            if message.id == messageId:
+                targetMessage = message
+                break
+        return await render_template('edit_message.html', editTextMessage=True, dates=dates, targetMessage=targetMessage, channelId=channelId)
+
+    if request.method == 'POST':
+        action = request.args.get('action')
+        form = await request.form
+        message_id = int(form.get('message_id'))
+        channel_id = int(form.get('channel_id'))
+        if action == 'save_text_content':
+            newMonth = int(form.get('newMonth'))
+            newDay = int(form.get('newDay'))
+            newHour = int(form.get('newHour'))
+            newMinute = int(form.get('newMinutes'))
+            newText = form.get('message_text')
+            schedule_time = datetime.utcnow()
+            schedule_time = schedule_time.replace(month=newMonth, day=newDay,
+                                                  hour=newHour, minute=newMinute)
+            schedule_time = schedule_time = schedule_time - timedelta(hours=5)
+            await my_utils.edit_message(channel_id, message_id, newText=newText, newDate=schedule_time)
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message edited successfully!')
 
 
 @app.route('/quiz_reports', methods=['GET'])
