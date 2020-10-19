@@ -25,22 +25,14 @@ content %}
             </form>
             <form class="d-inline" method="GET" action="/schedule_message">
               <input type="hidden" name="channel_id" value="{{ ch.id }}" />
-              <input
-                type="hidden"
-                name="channel_title"
-                value="{{ ch.title }}"
-              />
+              <input type="hidden" name="channel_title" value="{{ ch.title }}" />
               <button type="submit" class="btn btn-dark btn-sm my-1">
                 Schedule Messages
               </button>
             </form>
             <form class="d-inline" method="GET" action="/schedule_quiz">
               <input type="hidden" name="channel_id" value="{{ ch.id }}" />
-              <input
-                type="hidden"
-                name="channel_title"
-                value="{{ ch.title }}"
-              />
+              <input type="hidden" name="channel_title" value="{{ ch.title }}" />
               <button type="submit" class="btn btn-dark btn-sm my-1">
                 Schedule Quiz
               </button>
@@ -55,6 +47,12 @@ content %}
               <input type="hidden" name="channel_id" value="{{ ch.id }}" />
               <button type="submit" class="btn btn-dark btn-sm my-1">
                 Get Quiz Reports
+              </button>
+            </form>
+            <form class="d-inline" method="GET" action="/list_of_members">
+              <input type="hidden" name="channel_id" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Members List
               </button>
             </form>
           </div>

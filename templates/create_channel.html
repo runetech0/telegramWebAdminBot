@@ -10,25 +10,20 @@ content %}
           <div class="form-group">
             <label for="type">Channel Type</label>
             <select id="type" name="type" class="form-control">
-              <option>Public</option>
-              <option>Private</option>
+              <option value="private">Private</option>
+              <option value="public">Public</option>
             </select>
             <label for="channelName">Channel Name</label>
-            <input
-              name="channelName"
-              type="text"
-              class="form-control"
-              id="channelName"
-            />
+            <input name="channelName" type="text" class="form-control" id="channelName" />
           </div>
           <div class="form-group">
             <label for="channelDescription">Channel Description</label>
-            <input
-              name="channelDesc"
-              type="text"
-              class="form-control"
-              id="channelDescription"
-            />
+            <input name="channelDesc" type="text" class="form-control" id="channelDescription" />
+          </div>
+          <div class="form-group">
+            <label for="publicUserName">Channel Username [In Case Of Public Channel]</label>
+            <input name="publicUserName" type="text" class="form-control" id="publicUserName"
+              placeholder="Channel Username in case of public channel" />
           </div>
           <button class="btn btn-outline-dark mt-3" type="submit">
             Create Channel

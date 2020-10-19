@@ -1,0 +1,45 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %}
+
+
+{% if members %}
+
+
+<div class="container mt-4">
+    <div class="text-center">
+        <h1 class="mx-auto mt-4">Member List</h1>
+    </div>
+    <div class="row">
+        {% for member in members %}
+        <div class="col-sm-4 text-center">
+            <div class="card mx-2 my-4 mh-50">
+                <div class="card-body text-left" style=" width: 20rem;">
+                    {% if member.first_name %}
+                    <h6>
+                        First Name: {{ member.first_name }}
+                    </h6>
+                    {% endif %}
+                    {% if member.last_name %}
+                    <h6>
+                        Last Name: {{ member.last_name }}
+                    </h6>
+                    {% endif %}
+                    {% if member.username %}
+                    <h6>
+                        Telegram Username: {{ member.username }}
+                    </h6>
+                    {% endif %}
+                    {% if member.first_name %}
+                    <h6>
+                        Phone Number: +{{ member.phone }}
+                    </h6>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

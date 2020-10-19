@@ -146,11 +146,20 @@ async def create_new_channel():
         channel_name = form_data.get("channelName", None)
         channel_desc = form_data.get("channelDesc", None)
         channel_type = form_data.get("type", None)
+        channel_username = form_data.get('publicUserName', None)
         # TODO: Improve channel creation
-        if channel_type != None:
-            createdPrivateChannel = await client(CreateChannelRequest(channel_name, channel_desc, megagroup=False))
-            created_channenl_name = createdPrivateChannel.chats[0].title
-        return await render_template_string(f'Channel Created! {created_channenl_name}')
+        if channel_type == 'private':
+            status, message = await my_utils.create_new_channel(channel_name, channel_desc)
+            # created_channenl_name = createdPrivateChannel.chats[0].title
+            if status == 0:
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel Created Successfully!', description=message)
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel creation failed!', description="Channel could not be created for some reason!")
+        if channel_type == 'public':
+            status, message = await my_utils.create_new_channel(channel_name, channel_desc, public=True, publicName=channel_username)
+            # created_channenl_name = createdPrivateChannel.chats[0].title
+            if status != 0:
+                return await render_template('status.html', link='/all_channels', link_text='Back', title="Could not create public channel!", description=message)
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel Created Successfully!', description=message)
 
 
 @app.route('/all_channels', methods=['GET'])
@@ -159,8 +168,7 @@ async def all_channel():
     global list_of_channels
     if not logged_in:
         return redirect(f'/')
-    if list_of_channels == None:
-        list_of_channels = await my_utils.list_of_channels()
+    list_of_channels = await my_utils.list_of_channels()
     return await render_template('list_of_channels.html', channels=list_of_channels)
 
 
@@ -179,13 +187,14 @@ async def remove_member():
         type_of_en = form.get('type')
         en = form.get('input_entity')
         if type_of_en == 'id':
-            await my_utils.remove_member_by_id(int(channel_id), int(en))
+            status, message = await my_utils.remove_member_by_id(int(channel_id), int(en))
         if type_of_en == 'username':
-            await my_utils.remove_member_by_username(int(channel_id), en)
+            status, message = await my_utils.remove_member_by_username(int(channel_id), en)
         if type_of_en == 'phone':
-            await my_utils.remove_member_by_phone(int(channel_id), en)
-
-        return await render_template_string('Removing member ...')
+            status, message = await my_utils.remove_member_by_phone(int(channel_id), en)
+        if status != 0:
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Member Removed Successfully!', description=message)
+        return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not remove Member :(', description=message)
 
 
 @app.route('/add_member', methods=['GET', 'POST'])
@@ -205,11 +214,12 @@ async def add_member():
         if type_of_en == 'id':
             await my_utils.remove_member_by_id(int(channel_id), int(en))
         if type_of_en == 'username':
-            await my_utils.remove_member_by_username(int(channel_id), en)
+            status, message = await my_utils.remove_member_by_username(int(channel_id), en)
         if type_of_en == 'phone':
-            await my_utils.remove_member_by_phone(int(channel_id), en)
-
-        return await render_template_string('Adding member ...')
+            status, message = await my_utils.remove_member_by_phone(int(channel_id), en)
+        if status != 0:
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Member added Successfully!', description=message)
+        return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not add Member :(', description=message)
 
 
 @app.route('/get_invite', methods=['GET', 'POST'])
@@ -271,10 +281,10 @@ async def create_quiz():
                 month = int(form.get('onceMonth'))
                 hours = int(form.get('onceHours'))
                 minutes = int(form.get('onceMinutes'))
-                status = await my_utils.schedule_poll(int(channel_id), question=question, answers=answers, poll_typ='text', month=month, day=dom, hour=hours, minute=minutes)
-                if status['code'] != 0:
-                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{status["message"]}')
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{status["message"]}')
+                status, message = await my_utils.schedule_poll(int(channel_id), question=question, answers=answers, poll_typ='text', month=month, day=dom, hour=hours, minute=minutes)
+                if status != 0:
+                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{message}')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{message}')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -304,10 +314,8 @@ async def create_quiz():
                 minutes = form.get('weekdaysMinutes')
                 return str(day_of_week) + str(hours) + str(minutes)
             if cat == '':
-                return await render_template_string('Please select a Time category ...')
-            return await render_template('schedule_quiz.html', saved=True)
-
-        return await render_template_string('No match!')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Could Not Schedule!', description=f'Time category selected!\nPlease select a time category ...')
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Unknown Error!', description=f'Unknow error in quiz schedular!')
 
 
 @app.route('/test', methods=['GET', 'POST'])
@@ -367,8 +375,10 @@ async def manage_content():
                 month = form.get('onceMonth')
                 hours = form.get('onceHours')
                 minutes = form.get('onceMinutes')
-                await my_utils.schedule_message_once(channel_id, 'text', message_text=message, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
+                status, message = await my_utils.schedule_message_once(channel_id, 'text', message_text=message, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
+                if status != 0:
+                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not scchedule Message!', description=message)
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message scheduled successfully!', description=message)
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -390,7 +400,9 @@ async def manage_content():
                         fromDay = 1
                         continue
 
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
+                if status != 0:
+                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not scchedule Message!', description=message)
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message scheduled successfully!', description=message)
 
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
@@ -451,8 +463,6 @@ async def manage_content():
             if cat == '':
                 return await render_template_string('Please select a Time category')
 
-        return await render_template_string('No match ...')
-
 
 @app.route('/delete_message', methods=['POST'])
 async def delete_message():
@@ -500,6 +510,7 @@ async def edit_message():
         'months': months,
         'weekdays': ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     }
+
     if request.method == 'GET':
         channelId = int(request.args.get('channel_id'))
         messageId = int(request.args.get('message_id'))
@@ -524,7 +535,8 @@ async def edit_message():
             schedule_time = datetime.utcnow()
             schedule_time = schedule_time.replace(month=newMonth, day=newDay,
                                                   hour=newHour, minute=newMinute)
-            schedule_time = schedule_time = schedule_time - timedelta(hours=5)
+            schedule_time = schedule_time = schedule_time - \
+                timedelta(hours=5, minutes=30)
             await my_utils.edit_message(channel_id, message_id, newText=newText, newDate=schedule_time)
             return await render_template('status.html', link='/all_channels', link_text='Back', title='Message edited successfully!')
 
@@ -539,6 +551,17 @@ async def quiz_reports():
         sheets = await dbUtils.getAllSheets(int(channelId))
         if sheets:
             return await render_template('reports.html', sheets=sheets)
+
+
+@app.route('/list_of_members', methods=['GET'])
+async def members_list():
+    global logged_in
+    if not logged_in:
+        return redirect('/')
+    if request.method == 'GET':
+        channelId = request.args.get('channel_id')
+        members = await my_utils.get_members_list(channelId)
+        return await render_template('members_list.html', members=members)
 
 
 async def main():
