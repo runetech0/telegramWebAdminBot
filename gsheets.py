@@ -12,6 +12,7 @@ class GSheets:
         pass
 
     async def createNewSheet(self, title):
+        print('Starting new sheet creation...')
         newSheet = self.gc.create(title)
         return newSheet.url
 
@@ -28,20 +29,18 @@ class GSheets:
         formula = f'=SUM(D{rowNumber}:M{rowNumber})'
         ws.update(f'C{rowNumber}', formula, raw=False)
 
-    async def userExists(self, shUrl, wsTitle, userId):
+    async def userExists(self, shUrl, wsTitle, userId, totalHeading='Score', typeTitle='Question'):
         sh = self.gc.open_by_url(shUrl)
         try:
             ws = sh.worksheet(wsTitle)
         except gspread.exceptions.WorksheetNotFound:
             print('Worksheet does not exist... Creating new...')
-            ws = sh.add_worksheet(title=wsTitle, rows=100, cols=26)
-            ws.append_row(('Telegram ID', 'Name', 'Total', 'Quiz 1', 'Quiz 2',
-                           'Quiz 3', 'Quiz 4', 'Quiz 5', 'Quiz 6', 'Quiz 7', 'Quiz 8', 'Quiz 9', 'Quiz 10'))
-            ws.format('A1:M1', {'textFormat': {'bold': True}})
-            try:
-                sh.del_worksheet(sh.sheet1)
-            except gspread.exceptions.WorksheetNotFound:
-                pass
+            ws = sh.add_worksheet(title=wsTitle, rows=200, cols=200)
+            headerRow = ['Telegram ID', 'Name', f'Total {totalHeading}']
+            for i in range(1, 200):
+                headerRow.append(f'{typeTitle} {i}')
+            ws.append_row(headerRow)
+            ws.format('A1:CX1', {'textFormat': {'bold': True}})
         try:
             cell = ws.find(str(userId))
             return True, cell.row
@@ -74,17 +73,8 @@ class GSheets:
 
 async def main():
     sheets = GSheets('')
-    shUrl = 'https://docs.google.com/spreadsheets/d/1orTYF9KTYurLwDDLlKknOENDBt00jBjcPdUuON4ye64'
-    wsTitle = 'Sheet63'
-    if await sheets.wsExists(shUrl, wsTitle):
-        userFound, userRow = await sheets.userExists(shUrl, wsTitle, 'Rehman Ali')
-        if userFound:
-            await sheets.updateCell(shUrl, wsTitle, userRow, 1, 'Haider Sultan')
-        else:
-            print(f'User is at row {userRow}')
-    else:
-        print('Ws not exist!')
-
+    newSheetUrl = await sheets.createNewSheet('New Test Sheet')
+    print(newSheetUrl)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

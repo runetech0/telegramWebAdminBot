@@ -22,7 +22,15 @@ content %}
         <div class="card-body">
           <h5 class="card-title">Message</h5>
           <p class="card-text">{{ m.message }}</p>
-          <h6 class="card-subtitle mb-2 text-muted">{{ m.date.date() }} {{ m.date.hour + 5 }}:{{ m.date.minute }} </h6>
+          {% if m.date.minute + 30 > 60 %}
+          {% set min = 0 %}
+          {% set hour = m.date.hour + 1 %}
+          {% else %}
+          {% set min = m.date.minute %}
+          {% set hour = m.date.hour %}
+          {% endif %}
+          <h6 class="card-subtitle mb-2 text-muted">{{ m.date.date() }} {{ hour + 5 }}:{{ min + 30 }}
+          </h6>
           <form class="d-inline" action="/delete_message?action=delete" method="POST">
             <input type="hidden" name="message_id" value="{{ m.id }}">
             <input type="hidden" name="channel_id" value="{{ channel_id }}">

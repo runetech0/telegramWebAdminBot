@@ -55,6 +55,30 @@ content %}
                 Members List
               </button>
             </form>
+            <form class="d-inline" method="GET" action="/bulk_schedule_messages">
+              <input type="hidden" name="channel_id" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Bulk Schedule Messages
+              </button>
+            </form>
+            <form class="d-inline" method="GET" action="/bulk_schedule_quiz">
+              <input type="hidden" name="channel_id" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Bulk Schedule Quizzes
+              </button>
+            </form>
+            <form class="d-inline" method="GET" action="/bulk_schedule_messages">
+              <input type="hidden" name="channel_id" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Bulk Add Members
+              </button>
+            </form>
+            <form class="d-inline" method="GET" action="/bulk_schedule_oe_question">
+              <input type="hidden" name="channel_id" value="{{ ch.id }}" />
+              <button type="submit" class="btn btn-dark btn-sm my-1">
+                Bulk Schedule Queries
+              </button>
+            </form>
           </div>
         </div>
       </div>

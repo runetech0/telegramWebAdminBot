@@ -1,0 +1,113 @@
+{% extends 'base.html' %} {% block title %} Dashboard {% endblock %} {% block
+content %}
+
+{% if messages %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-center">
+        <h1>Bulk Schedule Messages</h1>
+        <div class="row mx-auto my-4">
+            <div class="w-100 col-sm-6 mx-auto">
+                <form action="/bulk_schedule_messages" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="channel_id" value="{{ channelId }}">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="csvFile" id="customFile">
+                        <label class="custom-file-label" for="customFile">Upload Messages File [csv]</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-dark mt-4" type="submit">
+                            Schedule Messages
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+
+{% if quizzes %}
+
+
+<div class="mt-3">
+    <div class="mt-auto container text-center">
+        <h1>Bulk Schedule Quizzes</h1>
+        <div class="row mx-auto">
+            <div class="w-100 col-sm-6 mx-auto">
+                <form action="/bulk_schedule_quiz" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="channel_id" value="{{ channelId }}">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="csvFile" id="customFile">
+                        <label class="custom-file-label" for="customFile">Upload Quizzes File [csv]</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-dark mt-4" type="submit">
+                            Schedule Quizzes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+
+{% if members %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-center">
+        <h1>Bulk Add Members</h1>
+        <div class="row mx-auto">
+            <div class="w-100 col-sm-6 mx-auto">
+                <form action="/bulk_schedule_messages" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="channel_id" value="{{ channelId }}">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="csvFile" id=" customFile">
+                        <label class="custom-file-label" for="customFile">Upload Members File [csv]</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-dark mt-4" type="submit">
+                            Add Members
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+
+{% if openEnded %}
+
+<div class="mt-3">
+    <div class="mt-auto container text-center">
+        <h1>Bulk Schedule Queries</h1>
+        <div class="row mx-auto">
+            <div class="w-100 col-sm-6 mx-auto">
+                <form action="/bulk_schedule_oe_question" method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="channel_id" value="{{ channelId }}">
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" name="csvFile" id=" customFile">
+                        <label class="custom-file-label" for="customFile">Upload Queries File [csv]</label>
+                    </div>
+                    <div>
+                        <button class="btn btn-outline-dark mt-4" type="submit">
+                            Schedule Queries
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+
+{% endblock %}

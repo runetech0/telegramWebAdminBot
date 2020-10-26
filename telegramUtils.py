@@ -1,24 +1,36 @@
 from telethon.tl.functions.messages import GetDialogsRequest
 from telethon.tl.functions.channels import CreateChannelRequest, CheckUsernameRequest, UpdateUsernameRequest
-from telethon.tl.types import InputChannel, InputPeerChannel
+from telethon.tl.types import InputChannel, InputPeerChannel, Channel
 from telethon.tl.functions.channels import InviteToChannelRequest
 from telethon.tl.types import InputPeerEmpty
 from telethon.tl.functions.channels import DeleteMessagesRequest
 from telethon.tl.types import InputPeerChannel
 from telethon.tl.types import InputMediaPoll, Poll, PollAnswer
 from telethon.tl.types import MessageMediaPoll
-from telethon import errors
+from telethon.tl.custom import Button
+from telethon import errors, functions
 import os
+import csv
+import time
+import random
 from random import shuffle
 from datetime import datetime, timedelta
 from telethon import events, functions
 
 
-class Utils:
-    def __init__(self, client, dbUtils, sheets):
+class TelegramUtils:
+    def __init__(self, client, bot, dbUtils, sheets):
+        self.bot = bot
         self.client = client
         self.dbUtils = dbUtils
         self.sheets = sheets
+
+    async def createGroup(self, groupName, userToAdd):
+        await self.client(functions.messages.CreateChatRequest(
+            users=[userToAdd],
+            title=groupName
+        ))
+        return 0, "New Group created successfully!"
 
     async def create_new_channel(self, channel_name, channel_desc,  public=False, publicName=None,):
         createdPrivateChannel = await self.client(CreateChannelRequest(channel_name, channel_desc, megagroup=False))
@@ -38,7 +50,7 @@ class Utils:
                     return 0, "Public channel created successfully!"
                 except errors.rpcerrorlist.UsernameOccupiedError:
                     return 1, "Username is already taken by someone else!"
-            return 99, "Could not make the channel public"
+            return 99, "Could not make the channel public..."
 
         return 0, "Private channel created successfully!"
 
@@ -53,12 +65,13 @@ class Utils:
         ))
         for chat in result.chats:
             try:
-                if chat.admin_rights or chat.creator:
-                    # if not chat.deactivated:
+                if chat.admin_rights != None:
+                    print(chat.admin_rights, chat.creator)
                     chats.append(chat)
             except AttributeError:
                 continue
         await self.dbUtils.updateGroups(chats)
+
         return chats
 
     async def schedule_message_once(self, channel_id, type_of_message, message_text=None, image=None, video=None, **kwargs):
@@ -121,7 +134,7 @@ class Utils:
             return None
         return list_of_messages
 
-    async def get_members_list(self, channel_id):
+    async def get_members_list(self, channel_id: int):
         channel = await self.client.get_entity(int(channel_id))
         target_title = channel.title
         chats = []
@@ -164,6 +177,7 @@ class Utils:
             schedule_time = schedule_time.replace(minute=minute)
         schedule_time = schedule_time - timedelta(hours=5, minutes=30)
         channel = await self.client.get_entity(int(channel_id))
+        subject = kwargs.get('subject', None)
         poll_question = kwargs.get('question')
         poll_answers = kwargs.get('answers')
         answers = []
@@ -174,7 +188,7 @@ class Utils:
             shuffle(answers)
             message = await self.client.send_message(channel, file=InputMediaPoll(poll=Poll(id=53453159, question=poll_question, answers=answers, quiz=True, public_voters=True), correct_answers=[b'0']), schedule=schedule_time)
             await self.dbUtils.createPoll(poll_question, poll_answers,
-                                          message.poll, 0, channel.title, channel.id, message.id)
+                                          message.poll, 0, channel.title, channel.id, message.id, subject)
             return 0, 'Quiz scheduled successfully!'
         except errors.rpcerrorlist.PollAnswersInvalidError:
             return 1, 'Message scheduler failed!\nYou did not provide enough answers or you provided too many answers for the poll.'
@@ -233,7 +247,12 @@ class Utils:
     async def remove_member_by_username(self, channel_id, username):
         user = await self.client.get_entity(username)
         channel = await self.client.get_entity(int(channel_id))
-        await self.client.kick_participant(channel, user)
+        try:
+            await self.client.kick_participant(channel, user)
+            return 0, "Successfully removed the target member from the group/channel."
+        except errors.UserNotParticipantError:
+            return 1, "Target member is not a member of group/channel."
+        return 999, "Unhandled error!"
 
     async def remove_member_by_phone(self, channel_id, phone):
         user = await self.client.get_entity(phone)
@@ -284,7 +303,119 @@ class Utils:
             peer=channel))
         return result.link
 
+    async def scheduleCsvMessages(self, channelId, csvFilePath):
+        csvFile = open(csvFilePath, 'r')
+        rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
+        next(rows, None)
+        for row in rows:
+            message = row[0]
+            date = row[1].split('/')
+            year = int(date[0])
+            month = int(date[1])
+            day = int(date[2])
+            time = row[2].split(':')
+            hours = int(time[0])
+            minutes = int(time[1])
+            await self.schedule_message_once(channelId, 'text', message_text=message, image=None, video=None, year=year, month=month, day=day, hour=hours, minute=minutes)
+        return 0, "All messages have been successfully scheduled to the target group.."
+
+    async def bulkScheduleQuiz(self, channelId, csvFilePath):
+        csvFile = open(csvFilePath, 'r')
+        rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
+        next(rows, None)
+        for row in rows:
+            subject = row[0]
+            date = row[1].split('/')
+            year = int(date[0])
+            month = int(date[1])
+            day = int(date[2])
+            time = row[2].split(':')
+            hours = int(time[0])
+            minutes = int(time[1])
+            question = row[3]
+            correctAnswer = row[4]
+            wrongAnswers = []
+            x = 5
+            while True:
+                try:
+                    wrongAnswers.append(row[x])
+                    x += 1
+                    continue
+                except IndexError:
+                    break
+            answers = wrongAnswers.copy()
+            answers.append(correctAnswer)
+            status, message = await self.schedule_poll(int(channelId), subject=subject, question=question, answers=answers, year=year, month=month, day=day, hour=hours, minute=minutes)
+            if status != 0:
+                break
+        return status, message
+
+    async def bulkAddMembers(self, channelId, csvFilePath):
+        csvFile = open(csvFilePath, 'r')
+        rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
+        next(rows, None)
+        for row in rows:
+            username = row[0]
+            if username != '':
+                code, message = await self.add_member_by_username(channelId, username)
+                if code == 0:
+                    time.sleep(random.randrange(100, 120))
+                if code == 1:
+                    time.sleep(10)
+                if code == 2:
+                    time.sleep(3)
+                if code == 3:
+                    time.sleep(5)
+                if code == 4:
+                    time.sleep(4)
+                if code == 5:
+                    time.sleep(7)
+                continue
+            phone = str(row[1])
+            if phone != '':
+                if phone[0] != '+':
+                    phone = f'+{phone}'
+                code, message = await self.add_member_by_phone(channelId, phone)
+                if code == 0:
+                    time.sleep(random.randrange(100, 120))
+                if code == 1:
+                    time.sleep(10)
+                if code == 2:
+                    time.sleep(3)
+                if code == 3:
+                    time.sleep(5)
+                if code == 4:
+                    time.sleep(4)
+                if code == 5:
+                    time.sleep(7)
+                continue
+
+    async def scheduleOpenEndedQuestions(self, groupId, csvFilePath):
+        csvFile = open(csvFilePath, 'r')
+        rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
+        next(rows, None)
+        botObject = await self.bot.get_me()
+        print('Starting schedule task!')
+        for row in rows:
+            question = row[0]
+            date = row[1].split('/')
+            year = int(date[0])
+            month = int(date[1])
+            day = int(date[2])
+            time = row[2].split(':')
+            hours = int(time[0])
+            minutes = int(time[1])
+            scheduleTime = datetime(year, month, day, hours, minutes)
+            scheduleTime = scheduleTime - timedelta(hours=hours, minutes=0)
+            payload = {
+                'question': question,
+                'groupId': groupId
+            }
+            try:
+                await self.client.send_message(botObject.username, f'/sendMessage {str(payload)}', schedule=scheduleTime)
+                return 0, 'Quiz scheduled successfully!'
+            except errors.rpcerrorlist.ScheduleTooMuchError:
+                return 2, "Schedule limit reached! \nYou cannot schedule more than 100 messages on telegram servers!"
+
     async def test(self):
-        # group = await self.client.get_entity(410906750)
-        # list_of_messages = await self.get_scheduled_messages(410906750)
         pass

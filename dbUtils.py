@@ -1,5 +1,6 @@
 
 from gsheets import GSheets
+import csv
 
 
 class DBUtils:
@@ -8,6 +9,8 @@ class DBUtils:
         self.allUsers = self.db.allUsers
         self.polls = self.db.polls
         self.channels = self.db.channels
+        self.botUsers = self.db.botUsers
+        self.openEndedSchedules = self.db.openEndedSchedules
         self.sheets = GSheets(db)
 
     async def userExists(self, userId=None, username=None):
@@ -16,29 +19,31 @@ class DBUtils:
                 return True
             return False
 
-    async def addUser(self, userId, userGroup, **kwargs):
+    async def addUser(self, userId, userGroupId, **kwargs):
         user = {}
         user['userId'] = userId
-        user['userGroup'] = userGroup
+        user['userGroupId'] = userGroupId
+        user['userGroupName'] = kwargs.get('userGroupName', '')
         user['username'] = kwargs.get('username', '')
         user['firstName'] = kwargs.get('firstName', '')
         user['lastName'] = kwargs.get('lastName', '')
         self.allUsers.insert_one(user)
 
-    async def getUserGroup(self, userId):
+    async def getUserGroupId(self, userId):
         user = self.allUsers.find_one({'userId': userId})
-        return user['userGroup'] if user else None
+        return user['userGroupId'] if user else None
 
     async def getUser(self, userId=None):
         user = self.allUsers.find_one({'userId': userId})
         return user if user else None
 
-    async def createPoll(self, pollQuestion, pollAnswers, poll, correctAnswer, pollGroupName, pollGroupId, messageId):
+    async def createPoll(self, pollQuestion, pollAnswers, poll, correctAnswer, pollGroupName, pollGroupId, messageId, subject):
         votes = {}
         votes[str(correctAnswer)] = 0
         for an in pollAnswers:
             votes[str(pollAnswers.index(an))] = 0
         poll = {
+            'subject': subject,
             'pollId': poll.poll.id,
             'messageId': messageId,
             'pollQuestion': pollQuestion,
@@ -55,6 +60,10 @@ class DBUtils:
             return True
         return False
 
+    async def getPollSubject(self, pollId):
+        poll = self.polls.find_one({'pollId': pollId})
+        return poll['subject'] if poll else None
+
     async def getPollGroup(self, pollId):
         poll = self.polls.find_one({'pollId': pollId})
         return {'groupName': poll['pollGroupName'], 'groupId': poll['pollGroupId'], 'messageId': poll['messageId']} if poll else None
@@ -63,29 +72,26 @@ class DBUtils:
         poll = self.polls.find_one({'pollId': pollId})
         return poll['correctAnswer'] if poll else None
 
-    async def groupExists(self, groupName):
-        if self.channels.find({'groupName': groupName}).count() > 0:
+    async def groupExists(self, groupId):
+        if self.channels.find({'groupId': groupId}).count() > 0:
             return True
         return False
 
-    # async def sheetExistsInDb(self, groupName, sheetUniqueName):
-    #     if not self.groupExists(groupName):
-    #         print('Group does not exist!')
-    #         return
-
     async def getSheetUrl(self, sheetTitle, groupId=None, groupName=None):
+        print('Getting sheet url from db...')
         if groupId:
             group = self.channels.find_one({'groupId': groupId})
         if groupName:
             group = self.channels.find_one({'groupName': groupName})
-        try:
-            sheetUrl = group['sheets'][sheetTitle]
+        print(f'Found Group: {group}')
+        sheetUrl = group['sheetsUrl']
+        if sheetUrl != None:
             return sheetUrl
-        except KeyError:
-            sheetUrl = await self.sheets.createNewSheet(sheetTitle)
-            self.channels.update_one({'groupId': groupId}, {
-                '$set': {'sheets': {sheetTitle: sheetUrl}}})
-            return sheetUrl
+        print('Trying to create new sheet...')
+        sheetUrl = await self.sheets.createNewSheet(sheetTitle)
+        self.channels.update_one({'groupName': groupName}, {
+            '$set': {'sheetsUrl':  sheetUrl}})
+        return sheetUrl
 
     async def getSelected(self, pollId, pollRersults):
         poll = self.polls.find_one({'pollId': pollId})
@@ -112,11 +118,37 @@ class DBUtils:
                 newChannel = {
                     'groupId': chat.id,
                     'groupName': chat.title,
-                    'sheets': {},
-
+                    'sheetsUrl': None,
                 }
                 self.channels.insert_one(newChannel)
 
     async def getAllSheets(self, groupId):
         group = self.channels.find_one({'groupId': groupId})
-        return group['sheets'] if group else None
+        return group['sheetsUrl'] if group else None
+
+    async def userRegisteredOnBot(self, userId):
+        user = self.botUsers.find_one({'userId': userId})
+        return True if user else False
+
+    async def updateOpenEndedSchedules(self, groupId, csvFilePath):
+        csvFile = open(csvFilePath, 'r')
+        rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
+        next(rows, None)
+        for row in rows:
+            question = row[0]
+            date = row[1].split('/')
+            year = int(date[0])
+            month = int(date[1])
+            day = int(date[2])
+            time = row[2].split(':')
+            hours = int(time[0])
+            minutes = int(time[1])
+            message = {
+                'question': question,
+                'date': [year, month, day, hours, minutes],
+                'groupId': groupId
+            }
+            self.openEndedSchedules.insert_one(message)
+
+    async def removeOpenEndedScheduleItem(self, _id):
+        pass
