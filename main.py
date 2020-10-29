@@ -71,9 +71,10 @@ async def sendScheduledMessage(message):
     payload = eval(text.replace('/sendMessage ', ''))
     question = payload['question']
     groupId = int(payload['groupId'])
+    questionNumber = payload['questionNumber']
     targetGroup = await bot.get_entity(groupId)
     await message.delete()
-    await bot.send_message(targetGroup, question, buttons=[[Button.url('Click here to submit your answer!', f'https://t.me/{botObject.username}?start=oer_{groupId}')]])
+    await bot.send_message(targetGroup, question, buttons=[[Button.url('Click here to submit your answer!', f'https://t.me/{botObject.username}?start=oer_{groupId}_{questionNumber}')]])
     raise StopPropagation
 
 
@@ -91,7 +92,9 @@ def startPattern(msg):
 async def botStart(message):
     raw = message.message.message
     payload = raw.replace('/start ', '')
-    channelId = int(payload.split('_')[1])
+    data = payload.split('_')
+    channelId = int(data[1])
+    questionNumber = int(data[2])
     userId = message.from_id
     userObject = await bot.get_entity(userId)
     group = await bot.get_entity(channelId)
@@ -113,9 +116,8 @@ async def botStart(message):
                 break
 
     shTitle = group.title
-    wsTitle = 'Open Ended'
+    wsTitle = f'Q {questionNumber}'
     sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=group.title)
-    print(sheetUrl)
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading='Pages Read', typeTitle='Day')
     if not exists:
         fName = userObject.first_name if userObject.first_name else ''
@@ -128,19 +130,20 @@ async def botStart(message):
 
 @client.on(events.Raw(types=[UpdateMessagePoll]))
 async def poll(event):
-    # print(event.stringify())
     pollId = event.poll_id
     if not await dbUtils.pollExists(pollId):
         return
+    # print(event.stringify())
     chosenAnswer = await dbUtils.getSelected(pollId, event.results.results)
-    pollGroup = await dbUtils.getPollGroup(pollId)
-    subject = await dbUtils.getPollSubject(pollId)
+    pollData = await dbUtils.getPollData(pollId)
+    subject = pollData['subject']
+    questionNumber = pollData['questionNumber']
     value = await dbUtils.ifCorrect(pollId, chosenAnswer.option)
     newVoterId = event.results.recent_voters[0]
     newVoterObject = await client.get_entity(int(newVoterId))
-    shTitle = f'{pollGroup["groupName"]}'
+    shTitle = f'{pollData["pollGroupName"]}'
     wsTitle = f'{subject}'
-    sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=pollGroup['groupName'])
+    sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=pollData['pollGroupName'])
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, newVoterId)
     if not exists:
         fName = newVoterObject.first_name if newVoterObject.first_name else ''
@@ -148,8 +151,7 @@ async def poll(event):
         name = f'{fName} {lName}'
         await sheets.addUser(sheetUrl, wsTitle, [newVoterId, name])
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, newVoterId)
-    await sheets.append_col(sheetUrl, wsTitle, userRow, value)
-    print(sheetUrl)
+    await sheets.append_col(sheetUrl, wsTitle, userRow, value, questionNumber=questionNumber)
 
     # ##################################################################< Quart Routes >##################################################################
 
@@ -262,8 +264,6 @@ async def remove_member():
         form = await request.form
         channel_id = form.get('channel_id')
         type_of_en = form.get('type')
-        print(type_of_en)
-        print(channel_id)
         en = form.get('input_entity')
         if type_of_en == 'id':
             status, message = await clientUtils.remove_member_by_id(int(channel_id), int(en))
@@ -291,12 +291,12 @@ async def add_member():
         type_of_en = form.get('type')
         en = form.get('input_entity')
         if type_of_en == 'id':
-            await clientUtils.remove_member_by_id(int(channel_id), int(en))
+            await clientUtils.add_member_by_phone(int(channel_id), int(en))
         if type_of_en == 'username':
-            status, message = await clientUtils.remove_member_by_username(int(channel_id), en)
+            status, message = await clientUtils.add_member_by_username(int(channel_id), en)
         if type_of_en == 'phone':
-            status, message = await clientUtils.remove_member_by_phone(int(channel_id), en)
-        if status != 0:
+            status, message = await clientUtils.add_member_by_phone(int(channel_id), en)
+        if status == 0:
             return await render_template('status.html', link='/all_channels', link_text='Back', title='Member added Successfully!', description=message)
         return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not add Member :(', description=message)
 
@@ -339,7 +339,8 @@ async def create_quiz():
         action = request.args.get('action')
         if action == 'add_new':
             channel_id = request.args.get('channel_id')
-            return await render_template('schedule_quiz.html', add_new=True, channel_id=channel_id, dates=dates)
+            subjects = await dbUtils.getSubjects()
+            return await render_template('schedule_quiz.html', add_new=True, channel_id=channel_id, dates=dates, subjects=subjects)
         if action == 'save_quiz':
             form = await request.form
             question = form.get('question')
@@ -642,9 +643,6 @@ async def members_list():
     if request.method == 'GET':
         channelId = request.args.get('channel_id')
         members = await clientUtils.get_members_list(channelId)
-        for m in members:
-            print(m.stringify())
-            break
         return await render_template('members_list.html', members=members)
 
 
@@ -666,7 +664,6 @@ async def bulk_schedule_messages():
         filePath = f'./csvUploads/messages_{channelId}.csv'
         csvFile.save(filePath)
         code, message = await clientUtils.scheduleCsvMessages(channelId, filePath)
-        os.remove(filePath)
         if code != 0:
             return await render_template('status.html', link='/all_channels', link_text='Back', title='Messages successfully scheduled!', description=message)
         return await render_template('status.html', link='/all_channels', link_text='Back', title='Message edited successfully!')
@@ -738,6 +735,27 @@ async def bulk_schedule_oe_question():
         if code != 0:
             return await render_template('status.html', link='/all_channels', link_text='Back', title='Failed to schedule open ended quiz!', description=message)
         return await render_template('status.html', link='/all_channels', link_text='Back', title='Successfully scheduled open ended quiz!', description=message)
+
+
+@app.route('/subjects', methods=['GET', 'POST'])
+async def subjects():
+    global logged_in
+    if not logged_in:
+        return redirect('/')
+    if request.method == 'GET':
+        return await render_template('subjects.html', add=True)
+    if request.method == 'POST':
+        action = request.args.get('action')
+        if action == 'add':
+            form = await request.form
+            subject = form.get('subject')
+            await dbUtils.addSubject(subject)
+            return await render_template('status.html', link='/dashboard', link_text='Dashboard', title='Addded new subject to database.')
+        if action == 'remove':
+            form = await request.form
+            subject = form.get('subject')
+            await dbUtils.removeSubject(subject)
+            return await render_template('status.html', link='/dashboard', link_text='Dashboard', title='Removed subject from database.')
 
 
 async def main():

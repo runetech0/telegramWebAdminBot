@@ -1,6 +1,7 @@
 
 from gsheets import GSheets
 import csv
+import random
 
 
 class DBUtils:
@@ -11,6 +12,7 @@ class DBUtils:
         self.channels = self.db.channels
         self.botUsers = self.db.botUsers
         self.openEndedSchedules = self.db.openEndedSchedules
+        self.subjects = self.db.subjects
         self.sheets = GSheets(db)
 
     async def userExists(self, userId=None, username=None):
@@ -37,13 +39,14 @@ class DBUtils:
         user = self.allUsers.find_one({'userId': userId})
         return user if user else None
 
-    async def createPoll(self, pollQuestion, pollAnswers, poll, correctAnswer, pollGroupName, pollGroupId, messageId, subject):
+    async def createPoll(self, pollQuestion, pollAnswers, poll, correctAnswer, pollGroupName, pollGroupId, messageId, subject, questionNumber=random.randrange(100, 1000)):
         votes = {}
         votes[str(correctAnswer)] = 0
         for an in pollAnswers:
             votes[str(pollAnswers.index(an))] = 0
         poll = {
             'subject': subject,
+            'questionNumber': questionNumber,
             'pollId': poll.poll.id,
             'messageId': messageId,
             'pollQuestion': pollQuestion,
@@ -60,13 +63,9 @@ class DBUtils:
             return True
         return False
 
-    async def getPollSubject(self, pollId):
+    async def getPollData(self, pollId):
         poll = self.polls.find_one({'pollId': pollId})
-        return poll['subject'] if poll else None
-
-    async def getPollGroup(self, pollId):
-        poll = self.polls.find_one({'pollId': pollId})
-        return {'groupName': poll['pollGroupName'], 'groupId': poll['pollGroupId'], 'messageId': poll['messageId']} if poll else None
+        return poll if poll else None
 
     def getCorrectAnswer(self, pollId):
         poll = self.polls.find_one({'pollId': pollId})
@@ -78,16 +77,13 @@ class DBUtils:
         return False
 
     async def getSheetUrl(self, sheetTitle, groupId=None, groupName=None):
-        print('Getting sheet url from db...')
         if groupId:
             group = self.channels.find_one({'groupId': groupId})
         if groupName:
             group = self.channels.find_one({'groupName': groupName})
-        print(f'Found Group: {group}')
         sheetUrl = group['sheetsUrl']
         if sheetUrl != None:
             return sheetUrl
-        print('Trying to create new sheet...')
         sheetUrl = await self.sheets.createNewSheet(sheetTitle)
         self.channels.update_one({'groupName': groupName}, {
             '$set': {'sheetsUrl':  sheetUrl}})
@@ -99,7 +95,9 @@ class DBUtils:
         for option, votes in previousVotes.items():
             for answer in pollRersults:
                 if answer.option.decode() == option:
+                    # print(f'Options: {answer.option.decode()}, {option}')
                     if answer.voters > votes:
+                        # print(f'Votes: {answer.voters}, {votes}')
                         self.polls.update_one({'pollId': pollId}, {
                                               '$set': {'votes': {option: answer.voters}}})
                         return answer
@@ -107,6 +105,7 @@ class DBUtils:
     async def ifCorrect(self, pollId, answer):
         poll = self.polls.find_one({'pollId': pollId})
         if poll:
+            # print(int(poll['correctAnswer']), int(answer.decode()))
             if int(poll['correctAnswer']) == int(answer.decode()):
                 return 1
             else:
@@ -150,5 +149,20 @@ class DBUtils:
             }
             self.openEndedSchedules.insert_one(message)
 
-    async def removeOpenEndedScheduleItem(self, _id):
+    async def addSubject(self, subject):
+        if self.subjects.find({}).count() == 0:
+            newDoc = {
+                'title': 'DropDownSubjects',
+                'listOfSubjects': [subject]
+            }
+            self.subjects.insert_one(newDoc)
+            return
+        self.subjects.update({'title': 'DropDownSubjects'}, {
+                             '$addToSet': {'listOfSubjects': subject}})
+
+    async def getSubjects(self):
+        subjects = self.subjects.find_one({'title': 'DropDownSubjects'})
+        return subjects['listOfSubjects'] if subjects else None
+
+    async def removeSubject(self, subject):
         pass

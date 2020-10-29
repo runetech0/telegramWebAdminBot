@@ -12,7 +12,6 @@ class GSheets:
         pass
 
     async def createNewSheet(self, title):
-        print('Starting new sheet creation...')
         newSheet = self.gc.create(title)
         return newSheet.url
 
@@ -34,21 +33,26 @@ class GSheets:
         try:
             ws = sh.worksheet(wsTitle)
         except gspread.exceptions.WorksheetNotFound:
-            print('Worksheet does not exist... Creating new...')
             ws = sh.add_worksheet(title=wsTitle, rows=200, cols=200)
             headerRow = ['Telegram ID', 'Name', f'Total {totalHeading}']
-            for i in range(1, 200):
-                headerRow.append(f'{typeTitle} {i}')
             ws.append_row(headerRow)
-            ws.format('A1:CX1', {'textFormat': {'bold': True}})
+            ws.format('A1:ZZ1', {'textFormat': {'bold': True}})
         try:
             cell = ws.find(str(userId))
             return True, cell.row
         except gspread.exceptions.CellNotFound:
             return False, None
 
+    async def findCol(self, shUrl, wsTitle, searchString):
+        sh = self.gc.open_by_url(shUrl)
+        ws = sh.worksheet(wsTitle)
+        try:
+            cell = ws.find(searchString)
+            return True, cell.col
+        except gspread.exceptions.CellNotFound:
+            return False, None
+
     async def updateCell(self, shUrl, wsTitle, rowNumber, colNumber, newData):
-        print('Updating cell value ...')
         sh = self.gc.open_by_url(shUrl)
         ws = sh.worksheet(wsTitle)
         ws.update_cell(rowNumber, colNumber, newData)
@@ -64,17 +68,21 @@ class GSheets:
         except gspread.exceptions.WorksheetNotFound:
             return False
 
-    async def append_col(self, shUrl, wsTitle, rowNumber, value):
+    async def append_col(self, shUrl, wsTitle, rowNumber, value, questionNumber=None):
         ws = self.gc.open_by_url(shUrl).worksheet(wsTitle)
         values_list = ws.row_values(rowNumber)
         empty_col = len(values_list) + 1
         ws.update_cell(rowNumber, empty_col, value)
+        if questionNumber != None:
+            ws.update_cell(1, int(questionNumber) + 3,
+                           f'Question {questionNumber}')
 
 
 async def main():
     sheets = GSheets('')
-    newSheetUrl = await sheets.createNewSheet('New Test Sheet')
-    print(newSheetUrl)
+    found, col = await sheets.findCol('https://docs.google.com/spreadsheets/d/1eUB-nkZwnqt9mDPsxnw6BOJsSnGFej8bY_oh87d7pfQ', 'English', 'Question 7')
+    if found:
+        print(col)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

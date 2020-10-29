@@ -1,10 +1,10 @@
-from telethon.tl.functions.messages import GetDialogsRequest
+from telethon.tl.functions.messages import GetDialogsRequest, AddChatUserRequest
 from telethon.tl.functions.channels import CreateChannelRequest, CheckUsernameRequest, UpdateUsernameRequest
 from telethon.tl.types import InputChannel, InputPeerChannel, Channel
 from telethon.tl.functions.channels import InviteToChannelRequest
 from telethon.tl.types import InputPeerEmpty
 from telethon.tl.functions.channels import DeleteMessagesRequest
-from telethon.tl.types import InputPeerChannel
+from telethon.tl.types import InputPeerChannel, Channel
 from telethon.tl.types import InputMediaPoll, Poll, PollAnswer
 from telethon.tl.types import MessageMediaPoll
 from telethon.tl.custom import Button
@@ -56,18 +56,20 @@ class TelegramUtils:
 
     async def list_of_channels(self):
         chats = []
-        result = await self.client(GetDialogsRequest(
-            offset_date=datetime.now(),
-            offset_id=0,
-            offset_peer=InputPeerEmpty(),
-            limit=1000,
-            hash=0
-        ))
-        for chat in result.chats:
+        # result = await self.client(GetDialogsRequest(
+        #     offset_date=datetime.now(),
+        #     offset_id=0,
+        #     offset_peer=InputPeerEmpty(),
+        #     limit=1000,
+        #     hash=0
+        # ))
+        result = await self.client.get_dialogs()
+        # print(result[0].stringify())
+        for chat in result:
             try:
-                if chat.admin_rights != None:
-                    print(chat.admin_rights, chat.creator)
-                    chats.append(chat)
+                if chat.entity.creator:
+                    if chat.is_group:
+                        chats.append(chat)
             except AttributeError:
                 continue
         await self.dbUtils.updateGroups(chats)
@@ -177,25 +179,31 @@ class TelegramUtils:
             schedule_time = schedule_time.replace(minute=minute)
         schedule_time = schedule_time - timedelta(hours=5, minutes=30)
         channel = await self.client.get_entity(int(channel_id))
+        if isinstance(channel, Channel):
+            return 302, "You should not schedule quiz in the channels.. Use groups instead!"
         subject = kwargs.get('subject', None)
         poll_question = kwargs.get('question')
         poll_answers = kwargs.get('answers')
+        questionNumber = kwargs.get('questionNumber')
         answers = []
         for an in poll_answers:
             a = PollAnswer(an, str(poll_answers.index(an)).encode())
             answers.append(a)
         try:
             shuffle(answers)
-            message = await self.client.send_message(channel, file=InputMediaPoll(poll=Poll(id=53453159, question=poll_question, answers=answers, quiz=True, public_voters=True), correct_answers=[b'0']), schedule=schedule_time)
+            message = await self.client.send_message(channel,
+                                                     file=InputMediaPoll(poll=Poll(id=53453159, question=poll_question,
+                                                                                   answers=answers, quiz=True, public_voters=True),
+                                                                         correct_answers=[b'0']), schedule=schedule_time)
             await self.dbUtils.createPoll(poll_question, poll_answers,
-                                          message.poll, 0, channel.title, channel.id, message.id, subject)
+                                          message.poll, 0, channel.title, channel.id, message.id, subject, questionNumber=questionNumber)
             return 0, 'Quiz scheduled successfully!'
         except errors.rpcerrorlist.PollAnswersInvalidError:
             return 1, 'Message scheduler failed!\nYou did not provide enough answers or you provided too many answers for the poll.'
         except errors.rpcerrorlist.ScheduleTooMuchError:
             return 2, "Schedule limit reached! \nYou cannot schedule more than 100 messages on telegram servers!"
-        # except:
-            # return {'code': 999, 'message': 'Unknown error occured while scheduling....'}
+        except errors.rpcerrorlist.PollOptionDuplicateError:
+            return 3, 'A duplicate option was sent in the same poll.'
 
     async def get_list_of_polls(self, channel_id):
         channel = await self.client.get_input_entity(channel_id)
@@ -231,7 +239,8 @@ class TelegramUtils:
                     if not newText:
                         newText = message.content
                     await self.client(functions.messages.EditMessageRequest(peer=group, id=message.id,
-                                                                            message=newText, no_webpage=False, entities=message.entities, media=newMedia, schedule_date=newDate))
+                                                                            message=newText, no_webpage=False, entities=message.entities,
+                                                                            media=newMedia, schedule_date=newDate))
 
     async def delete_poll(self, channel_id, message_id):
         group = await self.client.get_entity(int(channel_id))
@@ -265,9 +274,10 @@ class TelegramUtils:
 
     async def add_member_by_username(self, channel_id, username: str):
         user = await self.client.get_entity(username)
-        channel = await self.client.get_entity(int(channel_id))
+        # channel = await self.client.get_entity(int(channel_id))
+        # print(channel)
         try:
-            await self.client(InviteToChannelRequest(channel, [user]))
+            await self.client(AddChatUserRequest(channel_id, user, fwd_limit=10))
             return 0, "Member added successfully!"
         except errors.rpcerrorlist.BotGroupsBlockedError:
             return 1, "This bot can't be added to group ..."
@@ -282,9 +292,9 @@ class TelegramUtils:
 
     async def add_member_by_phone(self, channel_id, phone: str):
         user = await self.client.get_entity(phone)
-        channel = await self.client.get_entity(int(channel_id))
+        # channel = await self.client.get_entity(int(channel_id))
         try:
-            await self.client(InviteToChannelRequest(channel, [user]))
+            await self.client(AddChatUserRequest(channel_id, user, fwd_limit=10))
             return 0, "Member added successfully!"
         except errors.rpcerrorlist.BotGroupsBlockedError:
             return 1, "This bot can't be added to group ..."
@@ -309,10 +319,10 @@ class TelegramUtils:
         next(rows, None)
         for row in rows:
             message = row[0]
-            date = row[1].split('/')
-            year = int(date[0])
+            date = row[1].split('-')
+            day = int(date[0])
             month = int(date[1])
-            day = int(date[2])
+            year = int(date[2])
             time = row[2].split(':')
             hours = int(time[0])
             minutes = int(time[1])
@@ -324,18 +334,19 @@ class TelegramUtils:
         rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
         next(rows, None)
         for row in rows:
-            subject = row[0]
-            date = row[1].split('/')
-            year = int(date[0])
+            questionNumber = row[0]
+            subject = row[1]
+            date = row[2].split('-')
+            day = int(date[0])
             month = int(date[1])
-            day = int(date[2])
-            time = row[2].split(':')
+            year = int(date[2])
+            time = row[3].split(':')
             hours = int(time[0])
             minutes = int(time[1])
-            question = row[3]
-            correctAnswer = row[4]
+            question = row[4]
+            correctAnswer = row[5]
             wrongAnswers = []
-            x = 5
+            x = 6
             while True:
                 try:
                     wrongAnswers.append(row[x])
@@ -343,9 +354,14 @@ class TelegramUtils:
                     continue
                 except IndexError:
                     break
-            answers = wrongAnswers.copy()
+            answers = []
             answers.append(correctAnswer)
-            status, message = await self.schedule_poll(int(channelId), subject=subject, question=question, answers=answers, year=year, month=month, day=day, hour=hours, minute=minutes)
+            for an in wrongAnswers:
+                if an == '':
+                    continue
+                answers.append(an)
+            status, message = await self.schedule_poll(int(channelId), subject=subject, question=question, answers=answers, year=year,
+                                                       month=month, day=day, hour=hours, minute=minutes, questionNumber=questionNumber)
             if status != 0:
                 break
         return status, message
@@ -395,27 +411,33 @@ class TelegramUtils:
         rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
         next(rows, None)
         botObject = await self.bot.get_me()
-        print('Starting schedule task!')
         for row in rows:
-            question = row[0]
-            date = row[1].split('/')
-            year = int(date[0])
+            questionNumber = row[0]
+            question = row[1]
+            date = row[2].split('-')
+            day = int(date[0])
             month = int(date[1])
-            day = int(date[2])
-            time = row[2].split(':')
+            year = int(date[2])
+            time = row[3].split(':')
             hours = int(time[0])
             minutes = int(time[1])
             scheduleTime = datetime(year, month, day, hours, minutes)
             scheduleTime = scheduleTime - timedelta(hours=hours, minutes=0)
             payload = {
+                'questionNumber': questionNumber,
                 'question': question,
                 'groupId': groupId
             }
             try:
                 await self.client.send_message(botObject.username, f'/sendMessage {str(payload)}', schedule=scheduleTime)
-                return 0, 'Quiz scheduled successfully!'
+                code = 0
+                message = 'Quiz scheduled successfully!'
+                continue
             except errors.rpcerrorlist.ScheduleTooMuchError:
-                return 2, "Schedule limit reached! \nYou cannot schedule more than 100 messages on telegram servers!"
+                code = 2
+                message = "Schedule limit reached! \nYou cannot schedule more than 100 messages on telegram servers!"
+                continue
+        return code, message
 
     async def test(self):
         pass

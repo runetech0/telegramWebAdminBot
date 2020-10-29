@@ -132,12 +132,9 @@ content %}
           <input type="hidden" name="channel_id" , value="{{ channel_id }}">
           <label for="subject">Select Subject for Quiz</label>
           <select name="subject" id="subject">
-            <option value="english">Englilsh</option>
-            <option value="hindi">Hindi</option>
-            <option value="computer">Computer Science</option>
-            <option value="maths">Mathematics</option>
-            <option value="chemistery">Chemistery</option>
-            <option value="physics">Physics</option>
+            {% for sub in subjects %}
+            <option value="{{ sub }}">{{ sub }}</option>
+            {% endfor %}
           </select>
           <div class="form-group">
             <label for="question">Question for Quiz</label>
