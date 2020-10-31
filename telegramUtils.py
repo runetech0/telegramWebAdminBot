@@ -2,7 +2,7 @@ from telethon.tl.functions.messages import GetDialogsRequest, AddChatUserRequest
 from telethon.tl.functions.channels import CreateChannelRequest, CheckUsernameRequest, UpdateUsernameRequest
 from telethon.tl.types import InputChannel, InputPeerChannel, Channel
 from telethon.tl.functions.channels import InviteToChannelRequest
-from telethon.tl.types import InputPeerEmpty
+from telethon.tl.types import InputPeerEmpty, ChatBannedRights
 from telethon.tl.functions.channels import DeleteMessagesRequest
 from telethon.tl.types import InputPeerChannel, Channel
 from telethon.tl.types import InputMediaPoll, Poll, PollAnswer
@@ -11,6 +11,7 @@ from telethon.tl.custom import Button
 from telethon import errors, functions
 import os
 import csv
+from asyncio import sleep
 import time
 import random
 from random import shuffle
@@ -26,10 +27,34 @@ class TelegramUtils:
         self.sheets = sheets
 
     async def createGroup(self, groupName, userToAdd):
-        await self.client(functions.messages.CreateChatRequest(
+        createdGroup = await self.client(functions.messages.CreateChatRequest(
             users=[userToAdd],
             title=groupName
         ))
+        chats = await self.client.get_dialogs()
+        for chat in chats:
+            if chat.title == createdGroup.chats[0].title:
+                targetGroupId = chat.id
+                break
+        await self.client(functions.messages.EditChatDefaultBannedRightsRequest(
+            peer=targetGroupId,
+            banned_rights=ChatBannedRights(
+                until_date=None,
+                view_messages=None,
+                send_messages=True,
+                send_media=True,
+                send_stickers=True,
+                send_gifs=True,
+                send_games=True,
+                send_inline=True,
+                send_polls=True,
+                change_info=True,
+                invite_users=True,
+                pin_messages=True
+            )
+        ))
+        bot = await self.bot.get_me()
+        await self.client.edit_admin(targetGroupId, bot.id, is_admin=True)
         return 0, "New Group created successfully!"
 
     async def create_new_channel(self, channel_name, channel_desc,  public=False, publicName=None,):
@@ -83,7 +108,13 @@ class TelegramUtils:
             schedule_time = schedule_time.replace(year=year)
         month = kwargs.get('month', None)
         if month:
-            schedule_time = schedule_time.replace(month=month)
+            try:
+                schedule_time = schedule_time.replace(month=int(month))
+            except ValueError:
+                day = kwargs.get('day', None)
+                if day:
+                    schedule_time = schedule_time.replace(day=day)
+                schedule_time = schedule_time.replace(month=int(month))
         day = kwargs.get('day', None)
         if day:
             schedule_time = schedule_time.replace(day=day)
@@ -274,10 +305,9 @@ class TelegramUtils:
 
     async def add_member_by_username(self, channel_id, username: str):
         user = await self.client.get_entity(username)
-        # channel = await self.client.get_entity(int(channel_id))
-        # print(channel)
+        chat = await self.client.get_entity(int(channel_id))
         try:
-            await self.client(AddChatUserRequest(channel_id, user, fwd_limit=10))
+            await self.client(AddChatUserRequest(chat.id, user, fwd_limit=10))
             return 0, "Member added successfully!"
         except errors.rpcerrorlist.BotGroupsBlockedError:
             return 1, "This bot can't be added to group ..."
@@ -289,12 +319,21 @@ class TelegramUtils:
             return 4, "The specified user was deleted!"
         except errors.rpcerrorlist.UserChannelsTooMuchError:
             return 5, "The specified user is already in too much channels/groups!"
+        except errors.rpcerrorlist.FloodWaitError as err:
+            return err.seconds, f"Telegram wants us to wait for {err.seconds} before sending next request.."
+        except errors.rpcerrorlist.FloodError:
+            return 100, "You are sending too much requests to telegram ..\nTry after some time .."
+        except errors.rpcerrorlist.UserAlreadyParticipantError:
+            return 7, "User is already a participant of the group..."
 
     async def add_member_by_phone(self, channel_id, phone: str):
-        user = await self.client.get_entity(phone)
+        try:
+            user = await self.client.get_entity(str(phone))
+        except ValueError:
+            return 10, "The person is not in your contacts list.. To add using phone number the person must be your contact."
         # channel = await self.client.get_entity(int(channel_id))
         try:
-            await self.client(AddChatUserRequest(channel_id, user, fwd_limit=10))
+            await self.client(AddChatUserRequest(channel_id, phone, fwd_limit=10))
             return 0, "Member added successfully!"
         except errors.rpcerrorlist.BotGroupsBlockedError:
             return 1, "This bot can't be added to group ..."
@@ -306,6 +345,10 @@ class TelegramUtils:
             return 4, "The specified user was deleted!"
         except errors.rpcerrorlist.UserChannelsTooMuchError:
             return 5, "The specified user is already in too much channels/groups!"
+        except errors.rpcerrorlist.FloodWaitError as err:
+            return err.seconds, f"Telegram wants us to wait for {err.seconds} before sending next request.."
+        except errors.rpcerrorlist.FloodError:
+            return 100, "You are sending too much requests to telegram ..\nTry after some time .."
 
     async def get_invite_link(self, channel_id):
         channel = await self.client.get_input_entity(int(channel_id))
@@ -376,17 +419,10 @@ class TelegramUtils:
                 code, message = await self.add_member_by_username(channelId, username)
                 if code == 0:
                     time.sleep(random.randrange(100, 120))
-                if code == 1:
-                    time.sleep(10)
-                if code == 2:
-                    time.sleep(3)
-                if code == 3:
-                    time.sleep(5)
-                if code == 4:
-                    time.sleep(4)
-                if code == 5:
-                    time.sleep(7)
-                continue
+                    continue
+                else:
+                    time.sleep(random.randrange(5, 10))
+                    continue
             phone = str(row[1])
             if phone != '':
                 if phone[0] != '+':
@@ -394,17 +430,7 @@ class TelegramUtils:
                 code, message = await self.add_member_by_phone(channelId, phone)
                 if code == 0:
                     time.sleep(random.randrange(100, 120))
-                if code == 1:
-                    time.sleep(10)
-                if code == 2:
-                    time.sleep(3)
-                if code == 3:
-                    time.sleep(5)
-                if code == 4:
-                    time.sleep(4)
-                if code == 5:
-                    time.sleep(7)
-                continue
+                    continue
 
     async def scheduleOpenEndedQuestions(self, groupId, csvFilePath):
         csvFile = open(csvFilePath, 'r')
@@ -422,11 +448,12 @@ class TelegramUtils:
             hours = int(time[0])
             minutes = int(time[1])
             scheduleTime = datetime(year, month, day, hours, minutes)
-            scheduleTime = scheduleTime - timedelta(hours=hours, minutes=0)
+            scheduleTime = scheduleTime - timedelta(hours=5, minutes=30)
             payload = {
                 'questionNumber': questionNumber,
                 'question': question,
-                'groupId': groupId
+                'groupId': groupId,
+                'questionDate': date
             }
             try:
                 await self.client.send_message(botObject.username, f'/sendMessage {str(payload)}', schedule=scheduleTime)

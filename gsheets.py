@@ -56,7 +56,7 @@ class GSheets:
         sh = self.gc.open_by_url(shUrl)
         ws = sh.worksheet(wsTitle)
         ws.update_cell(rowNumber, colNumber, newData)
-        formula = f'=SUM(D{rowNumber}:M{rowNumber})'
+        formula = f'=SUM(D{rowNumber}:ZZ{rowNumber})'
         ws.update(f'C{rowNumber}',
                   formula, raw=False)
 
@@ -68,14 +68,17 @@ class GSheets:
         except gspread.exceptions.WorksheetNotFound:
             return False
 
-    async def append_col(self, shUrl, wsTitle, rowNumber, value, questionNumber=None):
+    async def append_col(self, shUrl, wsTitle, rowNumber, value, colum=None, questionNumber=None):
         ws = self.gc.open_by_url(shUrl).worksheet(wsTitle)
-        values_list = ws.row_values(rowNumber)
-        empty_col = len(values_list) + 1
-        ws.update_cell(rowNumber, empty_col, value)
         if questionNumber != None:
             ws.update_cell(1, int(questionNumber) + 3,
                            f'Question {questionNumber}')
+        if colum != None:
+            ws.update_cell(rowNumber, colum, value)
+            return
+        values_list = ws.row_values(rowNumber)
+        empty_col = len(values_list) + 1
+        ws.update_cell(rowNumber, empty_col, value)
 
 
 async def main():

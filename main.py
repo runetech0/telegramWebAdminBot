@@ -1,10 +1,9 @@
 import base64
 import os
 from telegramUtils import TelegramUtils
-from botUtils import BotUtils
 from datetime import datetime
 import hypercorn.asyncio
-from quart import Quart, render_template_string, request, render_template, redirect
+from quart import Quart, render_template_string, request, render_template, redirect, flash, url_for
 from telethon import TelegramClient, utils, events
 from telethon.tl import functions
 from telethon.events import StopPropagation
@@ -72,9 +71,16 @@ async def sendScheduledMessage(message):
     question = payload['question']
     groupId = int(payload['groupId'])
     questionNumber = payload['questionNumber']
+    questionDate = payload['questionDate']
+    day = questionDate[0]
+    month = questionDate[1]
+    year = questionDate[2]
     targetGroup = await bot.get_entity(groupId)
     await message.delete()
-    await bot.send_message(targetGroup, question, buttons=[[Button.url('Click here to submit your answer!', f'https://t.me/{botObject.username}?start=oer_{groupId}_{questionNumber}')]])
+    await bot.send_message(targetGroup,
+                           question, buttons=[[Button.url('Click here to submit your answer!',
+                                                          f'https://t.me/{botObject.username}?start=oer_\
+                                                              {groupId}_{questionNumber}_{day}_{month}_{year}')]])
     raise StopPropagation
 
 
@@ -95,6 +101,10 @@ async def botStart(message):
     data = payload.split('_')
     channelId = int(data[1])
     questionNumber = int(data[2])
+    day = int(data[3])
+    month = int(data[4])
+    year = int(data[5])
+    date = f'{day}-{month}-{year}'
     userId = message.from_id
     userObject = await bot.get_entity(userId)
     group = await bot.get_entity(channelId)
@@ -113,19 +123,22 @@ async def botStart(message):
                 break
             except asyncio.TimeoutError:
                 await conv.send_message('You did not submit your response in the time..')
-                break
+                return
 
     shTitle = group.title
     wsTitle = f'Q {questionNumber}'
     sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=group.title)
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading='Pages Read', typeTitle='Day')
+    found, col = await sheets.findCol(sheetUrl, wsTitle, date)
+    if not found:
+        await sheets.append_col(sheetUrl, wsTitle, 1, date)
     if not exists:
         fName = userObject.first_name if userObject.first_name else ''
         lName = userObject.last_name if userObject.last_name else ''
         name = f'{fName} {lName}'
         await sheets.addUser(sheetUrl, wsTitle, [userId, name])
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading='Pages Read', typeTitle='Day')
-    await sheets.append_col(sheetUrl, wsTitle, userRow, value)
+    await sheets.append_col(sheetUrl, wsTitle, userRow, value, colum=col)
 
 
 @client.on(events.Raw(types=[UpdateMessagePoll]))
@@ -138,20 +151,28 @@ async def poll(event):
     pollData = await dbUtils.getPollData(pollId)
     subject = pollData['subject']
     questionNumber = pollData['questionNumber']
-    value = await dbUtils.ifCorrect(pollId, chosenAnswer.option)
+    if chosenAnswer.option == b'0':
+        value = 1
+    else:
+        value = 0
     newVoterId = event.results.recent_voters[0]
     newVoterObject = await client.get_entity(int(newVoterId))
     shTitle = f'{pollData["pollGroupName"]}'
     wsTitle = f'{subject}'
     sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=pollData['pollGroupName'])
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, newVoterId)
+    found, col = await sheets.findCol(sheetUrl, wsTitle, f'Question {questionNumber}')
+    if not found:
+        await sheets.append_col(sheetUrl, wsTitle, 1, f'Question {questionNumber}')
+        found, col = await sheets.findCol(sheetUrl, wsTitle, f'Question {questionNumber}')
     if not exists:
         fName = newVoterObject.first_name if newVoterObject.first_name else ''
         lName = newVoterObject.last_name if newVoterObject.last_name else ''
         name = f'{fName} {lName}'
         await sheets.addUser(sheetUrl, wsTitle, [newVoterId, name])
     exists, userRow = await sheets.userExists(sheetUrl, wsTitle, newVoterId)
-    await sheets.append_col(sheetUrl, wsTitle, userRow, value, questionNumber=questionNumber)
+    await sheets.append_col(sheetUrl, wsTitle, userRow, value, colum=col)
+    # await sheets.append_col(sheetUrl, wsTitle, userRow, value, questionNumber=questionNumber)
 
     # ##################################################################< Quart Routes >##################################################################
 
@@ -167,7 +188,7 @@ async def startup():
         await client.sign_in(code=input("Enter code verification code: "))
     await bot.start(bot_token=BOT_TOKEN)
     clientUtils = TelegramUtils(client, bot, dbUtils, sheets)
-    botUtils = BotUtils(bot, dbUtils, sheets)
+    # botUtils = BotUtils(bot, dbUtils, sheets)
     botObject = await bot.get_me()
     clientObject = await client.get_me()
 
@@ -231,14 +252,20 @@ async def create_new_channel():
             status, message = await clientUtils.createGroup(channel_name, botObject.username)
             # created_channenl_name = createdPrivateChannel.chats[0].title
             if status == 0:
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel Created Successfully!', description=message)
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel creation failed!', description="Channel could not be created for some reason!")
+                return await render_template('status.html', link='/all_channels', link_text='Back',
+                                             title='Channel Created Successfully!', description=message)
+            return await render_template('status.html', link='/all_channels', link_text='Back',
+                                         title='Channel creation failed!', description="Channel could not be created for some reason!")
         if channel_type == 'public':
             status, message = await clientUtils.create_new_channel(channel_name, channel_desc, public=True, publicName=channel_username)
             # created_channenl_name = createdPrivateChannel.chats[0].title
             if status != 0:
-                return await render_template('status.html', link='/all_channels', link_text='Back', title="Could not create public channel!", description=message)
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Channel Created Successfully!', description=message)
+                return await render_template('status.html', link='/all_channels',
+
+                                             link_text='Back', title="Could not create public channel!", description=message)
+            return await render_template('status.html', link='/all_channels',
+
+                                         link_text='Back', title='Channel Created Successfully!', description=message)
 
 
 @app.route('/all_channels', methods=['GET'])
@@ -272,8 +299,10 @@ async def remove_member():
         if type_of_en == 'phone':
             status, message = await clientUtils.remove_member_by_phone(int(channel_id), en)
         if status == 0:
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Member Removed Successfully!', description=message)
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not remove Member :(', description=message)
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Member Removed Successfully!', description=message)
+        return await render_template('status.html', link='/all_channels',
+                                     link_text='Back', title='Could not remove Member :(', description=message)
 
 
 @app.route('/add_member', methods=['GET', 'POST'])
@@ -297,8 +326,10 @@ async def add_member():
         if type_of_en == 'phone':
             status, message = await clientUtils.add_member_by_phone(int(channel_id), en)
         if status == 0:
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Member added Successfully!', description=message)
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not add Member :(', description=message)
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Member added Successfully!', description=message)
+        return await render_template('status.html', link='/all_channels',
+                                     link_text='Back', title='Could not add Member :(', description=message)
 
 
 @app.route('/get_invite', methods=['GET', 'POST'])
@@ -322,7 +353,7 @@ async def create_quiz():
         channel_id = int(request.args.get('channel_id'))
         list_of_quiz = await clientUtils.get_list_of_polls(channel_id)
         if list_of_quiz:
-            return await render_template('schedule_quiz.html', list_quiz=True, list_of_quiz=list_of_quiz, channel_id=channel_id)
+            return await render_template('schedule_quiz.html', list_quiz=True, list_of_quiz=list_of_quiz, channel_id=channel_id, date_fix=updatedt)
         return await render_template('schedule_quiz.html', list_quiz=True, channel_id=channel_id)
     if request.method == 'POST':
         hours = list(range(0, 24))
@@ -340,13 +371,15 @@ async def create_quiz():
         if action == 'add_new':
             channel_id = request.args.get('channel_id')
             subjects = await dbUtils.getSubjects()
-            return await render_template('schedule_quiz.html', add_new=True, channel_id=channel_id, dates=dates, subjects=subjects)
+            return await render_template('schedule_quiz.html', add_new=True,
+                                         channel_id=channel_id, dates=dates, subjects=subjects)
         if action == 'save_quiz':
             form = await request.form
             question = form.get('question')
             channel_id = form.get('channel_id')
             correctAnswer = form.get('correctAnswer')
             subject = form.get('subject')
+            questionNumber = form.get('questionNumber')
             answers = []
             answers.append(correctAnswer)
             answersCount = 0
@@ -362,10 +395,14 @@ async def create_quiz():
                 month = int(form.get('onceMonth'))
                 hours = int(form.get('onceHours'))
                 minutes = int(form.get('onceMinutes'))
-                status, message = await clientUtils.schedule_poll(int(channel_id), subject=subject, question=question, answers=answers, poll_typ='text', month=month, day=dom, hour=hours, minute=minutes)
+                status, message = await clientUtils.schedule_poll(int(channel_id), subject=subject, question=question,
+                                                                  answers=answers, poll_typ='text', month=month, day=dom,
+                                                                  questionNumber=questionNumber, hour=hours, minute=minutes)
                 if status != 0:
-                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{message}')
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{message}')
+                    return await render_template('status.html', link='/all_channels',
+                                                 link_text='Back', title='Schedule failed!', description=f'{message}')
+                return await render_template('status.html', link='/all_channels',
+                                             link_text='Back', title='Scheduled successfully!', description=f'{message}')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -375,7 +412,8 @@ async def create_quiz():
                 untilMonth = int(form.get('fromUntilMonth'))
                 keepGoing = True
                 while keepGoing:
-                    status = await clientUtils.schedule_poll(int(channel_id), question=question, answers=answers, poll_typ='text', month=fromMonth, day=fromDay, hour=fromHours, minute=fromMinutes)
+                    status = await clientUtils.schedule_poll(int(channel_id), question=question, answers=answers,
+                                                             poll_typ='text', month=fromMonth, day=fromDay, hour=fromHours, minute=fromMinutes)
                     if fromMonth == untilMonth:
                         if fromDay == untilDay:
                             break
@@ -387,16 +425,20 @@ async def create_quiz():
                         fromDay = 1
                         continue
                 if status['code'] != 0:
-                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Schedule failed!', description=f'{status["message"]}')
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Scheduled successfully!', description=f'{status["message"]}')
+                    return await render_template('status.html', link='/all_channels', link_text='Back',
+                                                 title='Schedule failed!', description=f'{status["message"]}')
+                return await render_template('status.html', link='/all_channels',
+                                             link_text='Back', title='Scheduled successfully!', description=f'{status["message"]}')
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
                 hours = form.get('weekdaysHours')
                 minutes = form.get('weekdaysMinutes')
                 return str(day_of_week) + str(hours) + str(minutes)
             if cat == '':
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Could Not Schedule!', description=f'Time category selected!\nPlease select a time category ...')
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Unknown Error!', description=f'Did you forget to select the time category?')
+                return await render_template('status.html', link='/all_channels', link_text='Back', title='Could Not Schedule!',
+                                             description=f'Time category selected!\nPlease select a time category ...')
+            return await render_template('status.html', link='/all_channels', link_text='Back', title='Unknown Error!',
+                                         description=f'Did you forget to select the time category?')
 
 
 @app.route('/test', methods=['GET', 'POST'])
@@ -406,6 +448,16 @@ async def test():
         return await render_template('test.html')
     if request.method == 'POST':
         return await render_template('test.html')
+
+
+def updatedt(dtObj: datetime.now, hours=False, minutes=False, date=False):
+    newDt = dtObj + timedelta(hours=5, minutes=30)
+    if minutes:
+        return newDt.minute
+    if hours:
+        return newDt.hour
+    if date:
+        return newDt.date()
 
 
 @app.route('/schedule_message', methods=['GET', 'POST'])
@@ -419,12 +471,14 @@ async def manage_content():
         channel_title = request.args.get('channel_title')
         messages = await clientUtils.get_scheduled_messages(await client.get_input_entity(int(channel_id)))
         if messages is not None:
-            return await render_template('schedule_message.html', list_all=True, channel_id=channel_id, channel_title=channel_title, messages=messages)
-        return await render_template('schedule_message.html', channel_id=channel_id, list_all=True, channel_title=channel_title)
+            return await render_template('schedule_message.html', list_all=True, channel_id=channel_id,
+                                         channel_title=channel_title, messages=messages, date_fix=updatedt)
+        return await render_template('schedule_message.html', channel_id=channel_id, list_all=True,
+                                     channel_title=channel_title)
     if request.method == 'POST':
         hours = list(range(0, 24))
         minutes = list(range(0, 60))
-        days = list(range(1, 31))
+        days = list(range(1, 32))
         months = list(range(1, 13))
         dates = {
             'hours': hours,
@@ -456,10 +510,15 @@ async def manage_content():
                 month = form.get('onceMonth')
                 hours = form.get('onceHours')
                 minutes = form.get('onceMinutes')
-                status, message = await clientUtils.schedule_message_once(channel_id, 'text', message_text=message, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
+                status, message = await clientUtils.schedule_message_once(channel_id, 'text', message_text=message,
+                                                                          month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
                 if status != 0:
-                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not scchedule Message!', description=message)
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message scheduled successfully!', description=message)
+                    # await flash('Could not schedule message!')
+                    return await render_template('status.html', link='/all_channels', link_text='Back',
+                                                 title='Could not scchedule Message!', description=message)
+                # await flash('Message Scheduled Successfully!')
+                return await render_template('status.html', link='/all_channels', link_text='Back',
+                                             title='Message scheduled successfully!', description=message)
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -469,7 +528,8 @@ async def manage_content():
                 untilMonth = int(form.get('fromUntilMonth'))
                 keepGoing = True
                 while keepGoing:
-                    await clientUtils.schedule_message_once(channel_id, 'text', message_text=message, month=fromMonth, day=fromDay, hour=fromHours, minute=fromMinutes)
+                    await clientUtils.schedule_message_once(channel_id, 'text', message_text=message,
+                                                            month=fromMonth, day=fromDay, hour=fromHours, minute=fromMinutes)
                     if fromMonth == untilMonth:
                         if fromDay == untilDay:
                             break
@@ -482,8 +542,10 @@ async def manage_content():
                         continue
 
                 if status != 0:
-                    return await render_template('status.html', link='/all_channels', link_text='Back', title='Could not scchedule Message!', description=message)
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message scheduled successfully!', description=message)
+                    return await render_template('status.html', link='/all_channels', link_text='Back',
+                                                 title='Could not scchedule Message!', description=message)
+                return await render_template('status.html', link='/all_channels', link_text='Back',
+                                             title='Message scheduled successfully!', description=message)
 
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
@@ -510,8 +572,10 @@ async def manage_content():
                 filename = f'{datetime.timestamp(datetime.now())}.png'
                 file_location = f'./uploads/{filename}'
                 uploaded_file.save(file_location)
-                await clientUtils.schedule_message_once(channel_id, 'file', file_location=file_location, file_caption=file_caption, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
+                await clientUtils.schedule_message_once(channel_id, 'file', file_location=file_location,
+                                                        file_caption=file_caption, month=int(month), day=int(dom), hour=int(hours), minute=int(minutes))
+                return await render_template('status.html', link='/all_channels',
+                                             link_text='Back', title='Message Scheduled!')
             if cat == 'from':
                 fromHours = int(form.get('fromHours'))
                 fromMinutes = int(form.get('fromMinutes'))
@@ -524,7 +588,10 @@ async def manage_content():
                 uploaded_file.save(file_location)
                 keepGoing = True
                 while keepGoing:
-                    await clientUtils.schedule_message_once(channel_id, 'file', file_location=file_location, file_caption=file_caption, month=fromMonth, day=fromDay, hour=fromHours, minute=fromMinutes)
+                    await clientUtils.schedule_message_once(channel_id, 'file',
+                                                            file_location=file_location,
+                                                            file_caption=file_caption, month=fromMonth,
+                                                            day=fromDay, hour=fromHours, minute=fromMinutes)
                     if fromMonth == untilMonth:
                         if fromDay == untilDay:
                             break
@@ -535,7 +602,8 @@ async def manage_content():
                         fromMonth += 1
                         fromDay = 1
                         continue
-                return await render_template('status.html', link='/all_channels', link_text='Back', title='Message Scheduled!')
+                return await render_template('status.html', link='/all_channels',
+                                             link_text='Back', title='Message Scheduled!')
             if cat == 'weekdays':
                 day_of_week = form.get('weekdaysDay')
                 hours = form.get('weekdaysHours')
@@ -557,7 +625,8 @@ async def delete_message():
         channel_id = int(form.get('channel_id'))
         if action == 'delete':
             await clientUtils.delete_message(channel_id, message_id)
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message deleted successfully!')
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Message deleted successfully!')
 
 
 @app.route('/delete_poll', methods=['POST'])
@@ -572,7 +641,8 @@ async def delete_poll():
         channel_id = int(form.get('channel_id'))
         if action == 'delete':
             await clientUtils.delete_poll(channel_id, message_id)
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message deleted successfully!')
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Message deleted successfully!')
 
 
 @app.route('/edit_message', methods=['GET', 'POST'])
@@ -582,7 +652,7 @@ async def edit_message():
         return redirect(f'/')
     hours = list(range(0, 24))
     minutes = list(range(0, 60))
-    days = list(range(1, 31))
+    days = list(range(1, 32))
     months = list(range(1, 13))
     dates = {
         'hours': hours,
@@ -600,7 +670,8 @@ async def edit_message():
             if message.id == messageId:
                 targetMessage = message
                 break
-        return await render_template('edit_message.html', editTextMessage=True, dates=dates, targetMessage=targetMessage, channelId=channelId)
+        return await render_template('edit_message.html', editTextMessage=True,
+                                     dates=dates, targetMessage=targetMessage, channelId=channelId)
 
     if request.method == 'POST':
         action = request.args.get('action')
@@ -619,7 +690,8 @@ async def edit_message():
             schedule_time = schedule_time = schedule_time - \
                 timedelta(hours=5, minutes=30)
             await clientUtils.edit_message(channel_id, message_id, newText=newText, newDate=schedule_time)
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Message edited successfully!')
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Message edited successfully!')
 
 
 @app.route('/quiz_reports', methods=['GET'])
@@ -665,8 +737,10 @@ async def bulk_schedule_messages():
         csvFile.save(filePath)
         code, message = await clientUtils.scheduleCsvMessages(channelId, filePath)
         if code != 0:
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Messages successfully scheduled!', description=message)
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Message edited successfully!')
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Could not schedule all messages!', description=message)
+        return await render_template('status.html', link='/all_channels',
+                                     link_text='Back', title='Messages scheduled successfully!')
 
 
 @app.route('/bulk_schedule_quiz', methods=['GET', 'POST'])
@@ -688,8 +762,10 @@ async def bulk_schedule_quiz():
         csvFile.save(filePath)
         code, message = await clientUtils.bulkScheduleQuiz(channelId, filePath)
         if code != 0:
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Quizzes successfully scheduled!', description=message)
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Quizzes successfully scheduled!')
+            return await render_template('status.html', link='/all_channels',
+                                         link_text='Back', title='Quizzes successfully scheduled!', description=message)
+        return await render_template('status.html', link='/all_channels',
+                                     link_text='Back', title='Quizzes successfully scheduled!')
 
 
 @app.route('/bulk_add_members', methods=['GET', 'POST'])
@@ -699,7 +775,7 @@ async def bulk_add_members():
         return redirect('/')
     if request.method == 'GET':
         channelId = request.args.get('channel_id')
-        return await render_template('csv_upload.html', messages=True, channelId=channelId)
+        return await render_template('csv_upload.html', members=True, channelId=channelId)
     if request.method == 'POST':
         form = await request.form
         channelId = form.get('channel_id')
@@ -709,9 +785,12 @@ async def bulk_add_members():
             os.mkdir('./csvUploads')
         filePath = f'./csvUploads/messages_{channelId}.csv'
         csvFile.save(filePath)
-        await clientUtils.bulkAddMembers(channelId, filePath)
-        message = "The members are being added to the group in the background!\nAdding members to the group is a slow process so the members are being added in the background."
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Members are being added!', description=message)
+        client.loop.create_task(
+            clientUtils.bulkAddMembers(channelId, filePath))
+        message = "The members are being added to the group in the background!\nAdding  \
+        members to the group is a slow process so the members are being added in the background."
+        return await render_template('status.html', link='/all_channels',
+                                     link_text='Back', title='Members are being added!', description=message)
 
 
 @app.route('/bulk_schedule_oe_question', methods=['GET', 'POST'])
@@ -733,8 +812,10 @@ async def bulk_schedule_oe_question():
         csvFile.save(filePath)
         code, message = await clientUtils.scheduleOpenEndedQuestions(channelId, filePath)
         if code != 0:
-            return await render_template('status.html', link='/all_channels', link_text='Back', title='Failed to schedule open ended quiz!', description=message)
-        return await render_template('status.html', link='/all_channels', link_text='Back', title='Successfully scheduled open ended quiz!', description=message)
+            return await render_template('status.html', link='/all_channels', link_text='Back',
+                                         title='Failed to schedule open ended quiz!', description=message)
+        return await render_template('status.html', link='/all_channels', link_text='Back',
+                                     title='Successfully scheduled open ended quiz!', description=message)
 
 
 @app.route('/subjects', methods=['GET', 'POST'])
@@ -743,31 +824,34 @@ async def subjects():
     if not logged_in:
         return redirect('/')
     if request.method == 'GET':
-        return await render_template('subjects.html', add=True)
+        action = request.args.get('action')
+        if action == 'home':
+            return await render_template('subjects.html', home=True)
+        if action == 'add':
+            return await render_template('subjects.html', add=True)
+        if action == 'remove':
+            return await render_template('subjects.html', remove=True)
+        if action == 'list_all':
+            subjects = await dbUtils.getSubjects()
+            return await render_template('subjects.html', subjects=subjects)
     if request.method == 'POST':
         action = request.args.get('action')
         if action == 'add':
             form = await request.form
             subject = form.get('subject')
             await dbUtils.addSubject(subject)
-            return await render_template('status.html', link='/dashboard', link_text='Dashboard', title='Addded new subject to database.')
+            return await render_template('status.html', link='/subjects?action=home',
+                                         link_text='Add Another', title='Addded new subject to database.')
         if action == 'remove':
             form = await request.form
             subject = form.get('subject')
             await dbUtils.removeSubject(subject)
-            return await render_template('status.html', link='/dashboard', link_text='Dashboard', title='Removed subject from database.')
+            return await render_template('status.html', link='/subjects?action=home',
+                                         link_text='Subjects', title='Removed subject from database.')
 
 
 async def main():
     await hypercorn.asyncio.serve(app, hypercorn.Config())
-
-
-async def serverUp():
-    try:
-        mongoClient.server_info()
-        return True
-    except mongoErrors.ServerSelectionTimeoutError:
-        return False
 
 
 if __name__ == '__main__':

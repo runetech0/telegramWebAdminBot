@@ -46,13 +46,24 @@
           <a class="nav-link btn btn-outline-secondary" href="/create_new_channel">Create New Group</a>
         </li>
         <li class="mx-2 nav-item">
-          <a class="nav-link btn btn-outline-secondary" href="/subjects">Add New Subject</a>
+          <a class="nav-link btn btn-outline-secondary" href="/subjects?action=home">Manage Subjects</a>
         </li>
       </ul>
       <a class="nav-link btn btn-outline-dark" href="/logout">Logout</a>
     </div>
   </nav>
-  <div class="main">{% block content %} {% endblock %}</div>
+  <div class="main">
+
+    {% for message in get_flashed_messages() %}
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+      {{ message }}
+      <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    {% endfor %}
+
+    {% block content %} {% endblock %}</div>
 
   <!-- Optional JavaScript -->
   <!-- jQuery first, then Popper.js, then Bootstrap JS -->

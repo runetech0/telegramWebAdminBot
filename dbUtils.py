@@ -92,20 +92,23 @@ class DBUtils:
     async def getSelected(self, pollId, pollRersults):
         poll = self.polls.find_one({'pollId': pollId})
         previousVotes = poll['pollVotes']
-        for option, votes in previousVotes.items():
-            for answer in pollRersults:
-                if answer.option.decode() == option:
-                    # print(f'Options: {answer.option.decode()}, {option}')
-                    if answer.voters > votes:
-                        # print(f'Votes: {answer.voters}, {votes}')
-                        self.polls.update_one({'pollId': pollId}, {
-                                              '$set': {'votes': {option: answer.voters}}})
-                        return answer
+        # for option, votes in previousVotes.items():
+        for answer in pollRersults:
+            option = str(answer.option.decode())
+
+            newVoters = answer.voters
+            previousVoters = previousVotes[option]
+            if int(newVoters) == int(previousVoters):
+                continue
+            newPollVotes = previousVotes.copy()
+            newPollVotes[option] = answer.voters
+            self.polls.update_one({'pollId': pollId}, {
+                '$set': {'pollVotes': newPollVotes}})
+            return answer
 
     async def ifCorrect(self, pollId, answer):
         poll = self.polls.find_one({'pollId': pollId})
         if poll:
-            # print(int(poll['correctAnswer']), int(answer.decode()))
             if int(poll['correctAnswer']) == int(answer.decode()):
                 return 1
             else:
@@ -165,4 +168,10 @@ class DBUtils:
         return subjects['listOfSubjects'] if subjects else None
 
     async def removeSubject(self, subject):
-        pass
+        subjects = self.subjects.find_one({'title': 'DropDownSubjects'})
+        try:
+            subjects['listOfSubjects'].remove(subject)
+        except ValueError:
+            return
+        self.subjects.update({'title': 'DropDownSubjects'}, {
+                             '$set': {'listOfSubjects': subjects['listOfSubjects']}})

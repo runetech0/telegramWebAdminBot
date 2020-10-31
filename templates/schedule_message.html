@@ -5,13 +5,13 @@ content %}
 
 <div class="container text-center mx-auto">
   <div class="row text-center">
-    <h1 class="mx-auto">{{ channel_title }}</h1>
+    <h1 class="mx-auto mt-4">{{ channel_title }}</h1>
   </div>
   <div class="row">
     <form class="mx-auto" action="/schedule_message?action=get_type" method="POST">
       <input type="hidden" name="channel_id" value="{{ channel_id }}">
       <input type="hidden" name="channel_title" value="{{ channel_title }}">
-      <Button type="submit" class="mx-auto btn btn-outline-dark">Add New Message</Button>
+      <Button type="submit" class="mx-auto btn btn-outline-dark mt-3">Add New Message</Button>
     </form>
   </div>
   {% if messages %}
@@ -22,14 +22,8 @@ content %}
         <div class="card-body">
           <h5 class="card-title">Message</h5>
           <p class="card-text">{{ m.message }}</p>
-          {% if m.date.minute + 30 > 60 %}
-          {% set min = 0 %}
-          {% set hour = m.date.hour + 1 %}
-          {% else %}
-          {% set min = m.date.minute %}
-          {% set hour = m.date.hour %}
-          {% endif %}
-          <h6 class="card-subtitle mb-2 text-muted">{{ m.date.date() }} {{ hour + 5 }}:{{ min + 30 }}
+          <h6 class="card-subtitle mb-2 text-muted">{{ date_fix(m.date, date=True) }}
+            {{ date_fix(m.date, hours=True) }}:{{ date_fix(m.date, minutes=True) }}
           </h6>
           <form class="d-inline" action="/delete_message?action=delete" method="POST">
             <input type="hidden" name="message_id" value="{{ m.id }}">
@@ -48,7 +42,7 @@ content %}
   </div>
   {% else %}
   <div class="row">
-    <h3 class="mx-auto">No Messages!</h3>
+    <h3 class="mx-auto mt-4">No Messages!</h3>
   </div>
   {% endif %}
 </div>
@@ -141,28 +135,6 @@ content %}
               <option value="{{ day }}">{{ day }}</option>
               {% endfor %}
             </select>
-            <!-- <div class="custom-control custom-radio">
-                    <input type="radio" id="customRadio2" name="scheduleCat" value="weekdays" class="custom-control-input">
-                    <label class="custom-control-label" for="customRadio2">Weekly</label>
-                  </div>
-                  <label class="my-3" for="weekdaysDay">Day </label>
-                  <select name="weekdaysDay" id="weekdaysDay">
-                    {% for day in dates['weekdays'] %}
-                    <option value="{{ day }}">{{ day }}</option>
-                    {% endfor %}
-                  </select>
-                  <label class="my-3" for="weekdaysHours">Time: HH</label>
-                  <select name="weekdaysHours" id="weekdaysHours">
-                    {% for hr in dates['hours'] %}
-                    <option value="{{ hr }}">{{ hr }}</option>
-                    {% endfor %}
-                  </select>
-                  <label class="my-3" for="weekdaysMinutes">MM</label>
-                  <select name="weekdaysMinutes" id="weekdaysMinutes">
-                    {% for m in dates['minutes'] %}
-                    <option value="{{ m }}">{{ m }}</option>
-                    {% endfor %}
-                  </select> -->
             <div class="custom-control custom-radio">
               <input type="radio" id="customRadio3" name="scheduleCat" value="once" class="custom-control-input">
               <label class="custom-control-label" for="customRadio3">Once</label>
@@ -269,28 +241,6 @@ content %}
             <option value="{{ day }}">{{ day }}</option>
             {% endfor %}
           </select>
-          <!-- <div class="custom-control custom-radio">
-                    <input type="radio" id="customRadio2" name="scheduleCat" value="weekdays" class="custom-control-input">
-                    <label class="custom-control-label" for="customRadio2">On Weekday</label>
-                  </div>
-                  <label class="my-3" for="weekdaysDay">Day </label>
-                  <select name="weekdaysDay" id="weekdaysDay">
-                    {% for day in dates['weekdays'] %}
-                    <option value="{{ day }}">{{ day }}</option>
-                    {% endfor %}
-                  </select>
-                  <label class="my-3" for="weekdaysHours">Time: HH</label>
-                  <select name="weekdaysHours" id="weekdaysHours">
-                    {% for hr in dates['hours'] %}
-                    <option value="{{ hr }}">{{ hr }}</option>
-                    {% endfor %}
-                  </select>
-                  <label class="my-3" for="weekdaysMinutes">MM</label>
-                  <select name="weekdaysMinutes" id="weekdaysMinutes">
-                    {% for m in dates['minutes'] %}
-                    <option value="{{ m }}">{{ m }}</option>
-                    {% endfor %}
-                  </select> -->
           <div class="custom-control custom-radio">
             <input type="radio" id="customRadio3" name="scheduleCat" value="once" class="custom-control-input">
             <label class="custom-control-label" for="customRadio3">Only Once</label>
