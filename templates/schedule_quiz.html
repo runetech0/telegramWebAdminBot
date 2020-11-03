@@ -24,8 +24,8 @@ content %}
                 {% endfor %}
               </ul>
             </div>
-            <h6 class="card-subtitle mb-2 text-muted">{{ date_fix(m.date, date=True) }}
-              {{ date_fix(m.date, hours=True) }}:{{ date_fix(m.date, minutes=True) }}
+            <h6 class="card-subtitle mb-2 text-muted">{{ date_fix(quiz.date, date=True) }}
+              {{ date_fix(quiz.date, hours=True) }}:{{ date_fix(quiz.date, minutes=True) }}
             </h6>
             <form class="d-inline" action="/delete_poll?action=delete" method="POST">
               <input type="hidden" name="message_id" value="{{ quiz.id }}">
@@ -52,6 +52,8 @@ content %}
 
 
 {% if add_new %}
+
+{% if subjects %}
 
 <div class="mt-3">
   <div class="mt-auto container text-center">
@@ -169,6 +171,12 @@ content %}
   </div>
 </div>
 
+
+{% else %}
+<div class="text-center">
+  <h3 class="mx-auto mt-4">No subjects in the database, Add some subjects before adding a quiz..</h3>
+</div>
+{% endif %}
 {% endif %}
 
 

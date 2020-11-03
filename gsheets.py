@@ -28,13 +28,13 @@ class GSheets:
         formula = f'=SUM(D{rowNumber}:M{rowNumber})'
         ws.update(f'C{rowNumber}', formula, raw=False)
 
-    async def userExists(self, shUrl, wsTitle, userId, totalHeading='Score', typeTitle='Question'):
+    async def userExists(self, shUrl, wsTitle, userId, totalHeading='Total Score', typeTitle='Question'):
         sh = self.gc.open_by_url(shUrl)
         try:
             ws = sh.worksheet(wsTitle)
         except gspread.exceptions.WorksheetNotFound:
             ws = sh.add_worksheet(title=wsTitle, rows=200, cols=200)
-            headerRow = ['Telegram ID', 'Name', f'Total {totalHeading}']
+            headerRow = ['Telegram ID', 'Name', f'{totalHeading}']
             ws.append_row(headerRow)
             ws.format('A1:ZZ1', {'textFormat': {'bold': True}})
         try:
@@ -80,12 +80,16 @@ class GSheets:
         empty_col = len(values_list) + 1
         ws.update_cell(rowNumber, empty_col, value)
 
+    async def deleteAllSpreadSheets(self):
+        ss = self.gc.openall()
+        for s in ss:
+            self.gc.del_spreadsheet(s.url)
+
 
 async def main():
     sheets = GSheets('')
-    found, col = await sheets.findCol('https://docs.google.com/spreadsheets/d/1eUB-nkZwnqt9mDPsxnw6BOJsSnGFej8bY_oh87d7pfQ', 'English', 'Question 7')
-    if found:
-        print(col)
+    await sheets.deleteAllSpreadSheets()
+
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()

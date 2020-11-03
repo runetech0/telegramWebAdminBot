@@ -45,7 +45,7 @@
 {% endif %}
 
 
-{% if subjects %}
+{% if list_subjects %}
 
 <div class="mt-4 container text-center">
     <h1 class="mt-4">List Of Subjects</h1>
@@ -59,10 +59,11 @@
         </ul>
     </div>
 </div>
-</div>
 
-
-
+{% else %}
+<!-- <div class="text-center">
+    <h3 class="mt-4">No subjects in the database</h3>
+</div> -->
 {% endif %}
 
 {% if remove %}

@@ -14,6 +14,7 @@ from telethon.tl.types import InputPeerEmpty
 from telethon.tl.custom import Button
 from asyncio import sleep
 import asyncio
+from random import randrange
 from pymongo import MongoClient, errors as mongoErrors
 from dbUtils import DBUtils
 from gsheets import GSheets
@@ -77,10 +78,11 @@ async def sendScheduledMessage(message):
     year = questionDate[2]
     targetGroup = await bot.get_entity(groupId)
     await message.delete()
+    queryId = randrange(000000000000000, 99999999999999999)
+    await dbUtils.addQuery(queryId, question, [day, month, year])
     await bot.send_message(targetGroup,
                            question, buttons=[[Button.url('Click here to submit your answer!',
-                                                          f'https://t.me/{botObject.username}?start=oer_\
-                                                              {groupId}_{questionNumber}_{day}_{month}_{year}')]])
+                                                          f'https://t.me/{botObject.username}?start=oer_{groupId}_{questionNumber}_{queryId}')]])
     raise StopPropagation
 
 
@@ -101,15 +103,18 @@ async def botStart(message):
     data = payload.split('_')
     channelId = int(data[1])
     questionNumber = int(data[2])
-    day = int(data[3])
-    month = int(data[4])
-    year = int(data[5])
+    queryId = int(data[3])
+    query = await dbUtils.getQuery(queryId)
+    day = query['date'][0]
+    month = query['date'][1]
+    year = query['date'][2]
+    question = query['question']
     date = f'{day}-{month}-{year}'
     userId = message.from_id
     userObject = await bot.get_entity(userId)
     group = await bot.get_entity(channelId)
     async with bot.conversation(userId) as conv:
-        await conv.send_message('Please submit your answer!')
+        await conv.send_message(question)
         i = 0
         while i < 3:
             try:
@@ -118,6 +123,10 @@ async def botStart(message):
                     await conv.send_message('Please enter a digit!')
                     continue
                 else:
+                    admin = await client.get_me()
+                    if userId == admin.id:
+                        await conv.send_message('NOTE: You are admin of the group so your reply will not be recorded but you can do a replies for testing purpose.')
+                        return
                     await conv.send_message('Your answer has been recorded!')
                 value = response.text
                 break
@@ -128,7 +137,7 @@ async def botStart(message):
     shTitle = group.title
     wsTitle = f'Q {questionNumber}'
     sheetUrl = await dbUtils.getSheetUrl(shTitle, groupName=group.title)
-    exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading='Pages Read', typeTitle='Day')
+    exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading=question, typeTitle='Day')
     found, col = await sheets.findCol(sheetUrl, wsTitle, date)
     if not found:
         await sheets.append_col(sheetUrl, wsTitle, 1, date)
@@ -137,16 +146,16 @@ async def botStart(message):
         lName = userObject.last_name if userObject.last_name else ''
         name = f'{fName} {lName}'
         await sheets.addUser(sheetUrl, wsTitle, [userId, name])
-    exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading='Pages Read', typeTitle='Day')
+    exists, userRow = await sheets.userExists(sheetUrl, wsTitle, userId, totalHeading=question, typeTitle='Day')
     await sheets.append_col(sheetUrl, wsTitle, userRow, value, colum=col)
 
 
 @client.on(events.Raw(types=[UpdateMessagePoll]))
 async def poll(event):
     pollId = event.poll_id
+    # print(event.stringify())
     if not await dbUtils.pollExists(pollId):
         return
-    # print(event.stringify())
     chosenAnswer = await dbUtils.getSelected(pollId, event.results.results)
     pollData = await dbUtils.getPollData(pollId)
     subject = pollData['subject']
@@ -156,6 +165,9 @@ async def poll(event):
     else:
         value = 0
     newVoterId = event.results.recent_voters[0]
+    admin = await client.get_me()
+    if newVoterId == admin.id:
+        return
     newVoterObject = await client.get_entity(int(newVoterId))
     shTitle = f'{pollData["pollGroupName"]}'
     wsTitle = f'{subject}'
@@ -206,11 +218,13 @@ async def login():
     return redirect('/dashboard')
 
 
-@app.route('/logout', methods=['GET'])
+@app.route('/reset', methods=['GET'])
 async def logout():
     global logged_in
-    logged_in = False
-    return redirect(f'/')
+    mongoClient.drop_database(db)
+    await sheets.deleteAllSpreadSheets()
+    return await render_template('status.html', link='/dashboard',
+                                 link_text='Home', title='Bot Reset Successfull', description='All the spreadsheets and all the data stored in the database has been erased.')
 
 
 @app.route('/dashboard', methods=['GET'])
@@ -264,7 +278,6 @@ async def create_new_channel():
 
                                              link_text='Back', title="Could not create public channel!", description=message)
             return await render_template('status.html', link='/all_channels',
-
                                          link_text='Back', title='Channel Created Successfully!', description=message)
 
 
@@ -833,7 +846,9 @@ async def subjects():
             return await render_template('subjects.html', remove=True)
         if action == 'list_all':
             subjects = await dbUtils.getSubjects()
-            return await render_template('subjects.html', subjects=subjects)
+            if subjects:
+                return await render_template('subjects.html', list_subjects=True, subjects=subjects)
+            return await render_template('subjects.html', list_subjects=True, subjects=None)
     if request.method == 'POST':
         action = request.args.get('action')
         if action == 'add':

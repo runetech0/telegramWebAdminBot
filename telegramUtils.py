@@ -376,9 +376,12 @@ class TelegramUtils:
         csvFile = open(csvFilePath, 'r')
         rows = csv.reader(csvFile, delimiter=',', lineterminator='\n')
         next(rows, None)
+        allSubjects = await self.dbUtils.getSubjects()
         for row in rows:
             questionNumber = row[0]
             subject = row[1]
+            if subject not in allSubjects:
+                continue
             date = row[2].split('-')
             day = int(date[0])
             month = int(date[1])

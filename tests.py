@@ -1,0 +1,4 @@
+from random import randrange
+
+
+print(randrange(00000000000000000000000000, 9999999999999999999999999))

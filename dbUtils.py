@@ -13,6 +13,7 @@ class DBUtils:
         self.botUsers = self.db.botUsers
         self.openEndedSchedules = self.db.openEndedSchedules
         self.subjects = self.db.subjects
+        self.queries = self.db.queries
         self.sheets = GSheets(db)
 
     async def userExists(self, userId=None, username=None):
@@ -165,7 +166,7 @@ class DBUtils:
 
     async def getSubjects(self):
         subjects = self.subjects.find_one({'title': 'DropDownSubjects'})
-        return subjects['listOfSubjects'] if subjects else None
+        return subjects['listOfSubjects'] if subjects['listOfSubjects'] else None
 
     async def removeSubject(self, subject):
         subjects = self.subjects.find_one({'title': 'DropDownSubjects'})
@@ -175,3 +176,15 @@ class DBUtils:
             return
         self.subjects.update({'title': 'DropDownSubjects'}, {
                              '$set': {'listOfSubjects': subjects['listOfSubjects']}})
+
+    async def addQuery(self, queryId, question, date):
+        query = {
+            'queryId': queryId,
+            'question': question,
+            'date': date
+        }
+        self.queries.insert_one(query)
+
+    async def getQuery(self, queryId):
+        query = self.queries.find_one({'queryId': queryId})
+        return query if query else None
